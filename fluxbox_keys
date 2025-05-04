@@ -1,0 +1,5 @@
+# Basic Fluxbox Keybindings
+Mod1 Tab :NextWindow
+Mod1 Shift Tab :PrevWindow
+Mod4 t :Exec xterm
+# Add more as needed

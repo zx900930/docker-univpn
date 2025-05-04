@@ -1,0 +1,9 @@
+[begin] (Fluxbox)
+    [exec] (Terminal) {xterm}
+    [exec] (UniVPN) {/usr/local/UniVPN/UniVPN}
+    [submenu] (System Tools)
+        [exec] (Top) {xterm -e top}
+    [end]
+    [restart] (Restart Fluxbox) {fluxbox}
+    [exit] (Exit Fluxbox) {fluxbox-remote exit}
+[end]
