@@ -93,7 +93,7 @@ This project provides a Docker container for the Huawei UniVPN GUI client (versi
     ```yaml
     # Example volume mount in docker-compose.yml:
     # volumes:
-    #   - ./univpn_client_config:/home/vpnuser/.config/UniVPN # Adjust path as needed
+    #   - ./univpn_client_config:/home/vpnuser/UniVPN
     ```
 
 ## Troubleshooting
