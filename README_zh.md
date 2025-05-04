@@ -93,7 +93,7 @@
     ```yaml
     # docker-compose.yml 中的卷挂载示例:
     # volumes:
-    #   - ./univpn_client_config:/home/vpnuser/.config/UniVPN # 根据需要调整路径
+    #   - ./univpn_client_config:/home/vpnuser/UniVPN # 根据需要调整路径
     ```
 
 ## 问题排查
