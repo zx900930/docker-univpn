@@ -1,7 +1,7 @@
 #!/bin/bash
 
 INTERFACE="cnem_vnic"
-DANTE_COMMAND="/usr/sbin/danted -f /etc/danted.conf -D"
+DANTE_COMMAND="/usr/sbin/danted -f /etc/danted.conf"
 CHECK_INTERVAL=5 # Seconds between checks
 MAX_CHECKS=60    # Wait a maximum of 5 minutes (60 checks * 5 seconds)
 
