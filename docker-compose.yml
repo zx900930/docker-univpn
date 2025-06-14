@@ -1,4 +1,4 @@
-version: '3.8' # Use a recent compose version
+version: "3.8" # Use a recent compose version
 
 services:
   univpn:
@@ -37,9 +37,10 @@ services:
       - "5901:5901" # VNC TCP Port (for VNC clients)
       - "6901:6901" # noVNC Websocket Port (for browser access)
       - "1080:1080" # SOCKS5 Proxy Port
+      - "8888:8888" # HTTP Proxy Port
 
     # --- Resources ---
-    shm_size: '1g' # Optional: Increase shared memory, often good for GUI apps/browsers
+    shm_size: "1g" # Optional: Increase shared memory, often good for GUI apps/browsers
 
     # --- Environment Variables ---
     environment:

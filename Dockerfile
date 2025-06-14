@@ -47,6 +47,7 @@ RUN apt-get update && \
     net-tools \
     iproute2 \
     dante-server \   
+    tinyproxy \   
     dbus \
     tzdata \
     libx11-6 \
@@ -179,6 +180,9 @@ COPY supervisord.conf /etc/supervisor/supervisord.conf
 # Copy Dante configuration
 COPY danted.conf /etc/danted.conf
 RUN chown ${USERNAME}:${USERNAME} /etc/danted.conf
+
+# Copy Tinyproxy configuration
+COPY tinyproxy.conf /etc/tinyproxy/tinyproxy.conf
 
 # Copy VNC startup script and Fluxbox config
 COPY vnc_startup.sh /usr/local/bin/vnc_startup.sh
