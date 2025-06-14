@@ -2,7 +2,7 @@ version: "3.8" # Use a recent compose version
 
 services:
   univpn:
-    image: triatk/univpn:10781.18.0.116
+    image: triatk/univpn:10781.18.1.0512
     container_name: univpn-vnc
     restart: unless-stopped
 
