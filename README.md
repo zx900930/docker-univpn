@@ -5,16 +5,16 @@
 [![Docker Hub](https://img.shields.io/docker/pulls/triatk/univpn.svg)](https://hub.docker.com/r/triatk/univpn)
 [![Docker Image Size](https://img.shields.io/docker/image-size/triatk/univpn/latest)](https://hub.docker.com/r/triatk/univpn)
 
-This project provides a Docker container for the Huawei UniVPN GUI client (version 10781.18.0.0116), accessible via VNC or a web browser (noVNC). It also includes a SOCKS5 proxy (Dante) and an HTTP proxy (Tinyproxy) to route traffic from host applications through the container's VPN connection. The UniVPN application is configured to start automatically within the VNC session.
+This project provides a Docker container for the Huawei UniVPN GUI client (version **10781.18.1.0512**, released on May 12th, 2025), accessible via VNC or a web browser (noVNC). It also includes a SOCKS5 proxy (Dante) and an HTTP proxy (Tinyproxy) to route traffic from host applications through the container's VPN connection. The UniVPN application is configured to start automatically within the VNC session.
 
 **Disclaimer:** This project is unofficial and not affiliated with or endorsed by Huawei. The Huawei UniVPN client software itself is proprietary to Huawei. While the client binary is included in this repository's `./bin` directory for build convenience, **you are responsible for complying with Huawei's terms of service and licensing agreements** regarding its use. This container is provided for technical convenience, isolation, and remote access purposes only. The maintainers of this repository do not grant you any license to use the Huawei software.
 
-## Included Software Information (Version: 10781.18.0.0116)
+## Included Software Information (Version: 10781.18.1.0512)
 
 | Field           | Value                                                               |
 | :-------------- | :------------------------------------------------------------------ |
-| Release         | **10781.18.0.0116**                                                 |
-| Binary Location | Included in repository: `./bin/univpn-linux-64-10781.18.0.0116.zip` |
+| Release         | **10781.18.1.0512**                                                 |
+| Binary Location | Included in repository: `./bin/univpn-linux-64-10781.18.1.0512.zip` |
 | Base OS         | Ubuntu 22.04 LTS                                                    |
 | Access Method   | VNC (Port 5901), Web Browser via noVNC (Port 6901)                  |
 | Proxy           | SOCKS5 (Dante) on Port 1080, HTTP (Tinyproxy) on Port 8888          |
