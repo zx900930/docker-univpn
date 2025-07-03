@@ -2,83 +2,81 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "main" ]
-    tags: [ "*.*.*.*" ]
+    branches: ["main"]
+    tags: ["*.*.*.*"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-
   build:
     runs-on: ubuntu-latest
     outputs:
-      new_version:
-        value: ${{ steps.get-version.outputs.VERSION }}
+      new_version: ${{ steps.get-version.outputs.VERSION }}
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Get changed files in bin directory
-      id: changed-files
-      uses: tj-actions/changed-files@v32
-      with:
-        base_sha: ${{ github.event.before }}
-        files: bin/**
+      - name: Get changed files in bin directory
+        id: changed-files
+        uses: tj-actions/changed-files@v32
+        with:
+          base_sha: ${{ github.event.before }}
+          files: bin/**
 
-    - name: Extract new version
-      id: get-version
-      run: |
-        NEW_FILE=$(echo "${{ steps.changed-files.outputs.added_files }}" | grep 'bin/univpn-linux-64-.*\\.zip' | head -n 1)
-        if [ -z "$NEW_FILE" ]; then
-          echo "No new UniVPN zip file detected in bin/ directory. Using default version."
-          echo "VERSION=" >> $GITHUB_OUTPUT
-        else
-          # Extract version and remove leading zeros from the last segment
-          VERSION=$(echo "$NEW_FILE" | sed -E 's/bin\/univpn-linux-64-(.*)\\.zip/\\1/' | sed -E 's/\\.0*([0-9]+)$/\\.\\1/')
-          echo "Detected new version: $VERSION"
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-        fi
+      - name: Extract new version
+        id: get-version
+        run: |
+          NEW_FILE=$(echo "${{ steps.changed-files.outputs.added_files }}" | grep 'bin/univpn-linux-64-.*\.zip' | head -n 1)
+          if [ -z "$NEW_FILE" ]; then
+            echo "No new UniVPN zip file detected in bin/ directory. Using default version."
+            echo "VERSION=" >> $GITHUB_OUTPUT
+          else
+            # Extract version and remove leading zeros from the last segment
+            VERSION=$(echo "$NEW_FILE" | sed -E 's/bin\/univpn-linux-64-(.*)\\.zip/\1/' | sed -E 's/\.0*([0-9]+)$/\.\1/')
+            echo "Detected new version: $VERSION"
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          fi
 
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-    - name: Docker meta
-      id: meta_univpn # you'll use this in the next step
-      uses: docker/metadata-action@v5
-      with:
-        # list of Docker images to use as base name for tags
-        images: |
-          triatk/univpn
-        # Docker tags based on the following events/attributes
-        flavor: |
-          latest=true
-        tags: |
-          type=schedule
-          type=ref,event=branch
-          type=ref,event=pr
-          type=pep440,pattern={{version}}
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}}
-          type=sha
-          # Use extracted version if available
-          type=raw,value=${{ steps.get-version.outputs.VERSION }},enable=${{ steps.get-version.outputs.VERSION != '' }}
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-    - name: Build and push
-      id: docker_build
-      uses: docker/build-push-action@v6
-      with:
-        push: true
-        platforms: linux/amd64
-        tags: ${{ steps.meta_univpn.outputs.tags }}
-        labels: ${{ steps.meta_univpn.outputs.labels }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta_univpn
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            triatk/univpn
+          flavor: |
+            latest=true
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=pr
+            type=pep440,pattern={{version}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+            type=raw,value=${{ steps.get-version.outputs.VERSION }},enable=${{ steps.get-version.outputs.VERSION != '' }}
+
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta_univpn.outputs.tags }}
+          labels: ${{ steps.meta_univpn.outputs.labels }}
 
   create-release:
     runs-on: ubuntu-latest
@@ -86,29 +84,29 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.outputs.new_version != ''
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-    - name: Get new version from build job
-      id: get-new-version
-      run: echo "NEW_VERSION=${{ needs.build.outputs.new_version }}" >> $GITHUB_OUTPUT
+      - name: Get new version from build job
+        id: get-new-version
+        run: echo "NEW_VERSION=${{ needs.build.outputs.new_version }}" >> $GITHUB_OUTPUT
 
-    - name: Generate Changelog
-      id: changelog
-      uses: github-actions-x/changelog@v1.0
-      with:
-        github-token: ${{ secrets.GH_TOKEN }}
-        version: ${{ steps.get-new-version.outputs.NEW_VERSION }}
+      - name: Generate Changelog
+        id: changelog
+        uses: github-actions-x/changelog@v1.0
+        with:
+          github-token: ${{ secrets.GH_TOKEN }}
+          version: ${{ steps.get-new-version.outputs.NEW_VERSION }}
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-      with:
-        tag_name: v${{ steps.get-new-version.outputs.NEW_VERSION }}
-        release_name: Release v${{ steps.get-new-version.outputs.NEW_VERSION }}
-        body: ${{ steps.changelog.outputs.changelog }}
-        prerelease: true
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        with:
+          tag_name: v${{ steps.get-new-version.outputs.NEW_VERSION }}
+          release_name: Release v${{ steps.get-new-version.outputs.NEW_VERSION }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          prerelease: true
