@@ -98,14 +98,14 @@ jobs:
       id: changelog
       uses: github-actions-x/changelog@v1.0
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ secrets.GH_TOKEN }}
         version: ${{ steps.get-new-version.outputs.NEW_VERSION }}
 
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
       with:
         tag_name: v${{ steps.get-new-version.outputs.NEW_VERSION }}
         release_name: Release v${{ steps.get-new-version.outputs.NEW_VERSION }}
