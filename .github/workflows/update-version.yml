@@ -1,0 +1,63 @@
+name: Update UniVPN Version
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'bin/**'
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Get changed files in bin directory
+      id: changed-files
+      uses: tj-actions/changed-files@v32
+      with:
+        base_sha: ${{ github.event.before }}
+        files: bin/**
+
+    - name: Extract new version
+      id: get-version
+      run: |
+        NEW_FILE=$(echo "${{ steps.changed-files.outputs.added_files }}" | grep 'bin/univpn-linux-64-.*\\.zip' | head -n 1)
+        if [ -z "$NEW_FILE" ]; then
+          echo "No new UniVPN zip file detected in bin/ directory. Exiting."
+          exit 0
+        fi
+        VERSION=$(echo "$NEW_FILE" | sed -E 's/bin\/univpn-linux-64-(.*)\\.zip/\\1/')
+        echo "Detected new version: $VERSION"
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Update docker-compose.yml
+      if: steps.get-version.outputs.VERSION != ''
+      run: |
+        sed -i -E "s/image: triatk\\/univpn:.*/image: triatk\\/univpn:${{ steps.get-version.outputs.VERSION }}/" docker-compose.yml
+        echo "Updated docker-compose.yml with version ${{ steps.get-version.outputs.VERSION }}"
+
+    - name: Update Dockerfile
+      if: steps.get-version.outputs.VERSION != ''
+      run: |
+        sed -i -E "s/ARG CLIENT_VERSION=.*/ARG CLIENT_VERSION=${{ steps.get-version.outputs.VERSION }}/" Dockerfile
+        sed -i -E "s/ARG ZIP_FILE_REL_PATH=bin\\/univpn-linux-64-\\$\\{CLIENT_VERSION\\}\\.zip/ARG ZIP_FILE_REL_PATH=bin\\/univpn-linux-64-\\$\\{CLIENT_VERSION\\}\\.zip/" Dockerfile
+        sed -i -E "s/ARG INSTALLER_RUN_FILE=univpn-linux-64-\\$\\{CLIENT_VERSION\\}\\.run/ARG INSTALLER_RUN_FILE=univpn-linux-64-\\$\\{CLIENT_VERSION\\}\\.run/" Dockerfile
+        echo "Updated Dockerfile with version ${{ steps.get-version.outputs.VERSION }}"
+
+    - name: Create Pull Request
+      if: steps.get-version.outputs.VERSION != ''
+      uses: peter-evans/create-pull-request@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: "chore: Update UniVPN client to version ${{ steps.get-version.outputs.VERSION }}"
+        title: "chore: Update UniVPN client to version ${{ steps.get-version.outputs.VERSION }}"
+        body: |
+          This PR updates the UniVPN client version in `docker-compose.yml` and `Dockerfile` to `${{ steps.get-version.outputs.VERSION }}`.
+          This is an automated PR triggered by a new file push to the `bin/` directory.
+        branch: automated-version-update
+        base: main
+        delete-branch: true
