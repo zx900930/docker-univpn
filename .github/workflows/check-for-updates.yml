@@ -24,7 +24,7 @@ jobs:
           FULL_URL=$(echo "$DOWNLOAD_LINK" | sed -E "s/.*onClick=\"toPage\('([^']+)', 'package'\).*/\1/")
           echo "Found download URL: $FULL_URL"
           # Extract the version from the URL
-          WEB_VERSION=$(echo "$FULL_URL" | sed -E 's/.*univpn-linux-64-(.*)\\.zip/\1/')
+          WEB_VERSION=$(echo "$FULL_URL" | sed -E 's/.*univpn-linux-64-([^.]+\.[^.]+\.[^.]+\.[^.]+)\.zip/\1/')
           echo "Latest web version: $WEB_VERSION"
           echo "WEB_VERSION=$WEB_VERSION" >> $GITHUB_OUTPUT
           echo "FULL_URL=$FULL_URL" >> $GITHUB_OUTPUT
@@ -37,7 +37,7 @@ jobs:
             echo "No local UniVPN zip file found. Setting local version to 0."
             echo "LOCAL_VERSION=0" >> $GITHUB_OUTPUT
           else
-            LOCAL_VERSION=$(echo "$LATEST_LOCAL_FILE" | sed -E 's/bin\/univpn-linux-64-(.*)\\.zip/\1/')
+            LOCAL_VERSION=$(echo "$LATEST_LOCAL_FILE" | sed -E 's/.*univpn-linux-64-([^.]+\.[^.]+\.[^.]+\.[^.]+)\.zip/\1/')
             echo "Current local version: $LOCAL_VERSION"
             echo "LOCAL_VERSION=$LOCAL_VERSION" >> $GITHUB_OUTPUT
           fi
