@@ -10,10 +10,35 @@ on:
 jobs:
 
   build:
-
     runs-on: ubuntu-latest
+    outputs:
+      new_version:
+        value: ${{ steps.get-version.outputs.VERSION }}
 
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Get changed files in bin directory
+      id: changed-files
+      uses: tj-actions/changed-files@v32
+      with:
+        base_sha: ${{ github.event.before }}
+        files: bin/**
+
+    - name: Extract new version
+      id: get-version
+      run: |
+        NEW_FILE=$(echo "${{ steps.changed-files.outputs.added_files }}" | grep 'bin/univpn-linux-64-.*\\.zip' | head -n 1)
+        if [ -z "$NEW_FILE" ]; then
+          echo "No new UniVPN zip file detected in bin/ directory. Using default version."
+          echo "VERSION=" >> $GITHUB_OUTPUT
+        else
+          VERSION=$(echo "$NEW_FILE" | sed -E 's/bin\/univpn-linux-64-(.*)\\.zip/\\1/' | sed -E 's/\\.0*([0-9]+)$/\\.\1/')
+          echo "Detected new version: $VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        fi
+
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
     - name: Set up Docker Buildx
@@ -42,8 +67,10 @@ jobs:
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
           type=sha
-    -
-      name: Build and push
+          # Use extracted version if available
+          type=raw,value=${{ steps.get-version.outputs.VERSION }},enable=${{ steps.get-version.outputs.VERSION != '' }}
+
+    - name: Build and push
       id: docker_build
       uses: docker/build-push-action@v6
       with:
@@ -51,3 +78,45 @@ jobs:
         platforms: linux/amd64
         tags: ${{ steps.meta_univpn.outputs.tags }}
         labels: ${{ steps.meta_univpn.outputs.labels }}
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.outputs.new_version != ''
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Get new version from build job
+      id: get-new-version
+      run: echo "NEW_VERSION=${{ needs.build.outputs.new_version }}" >> $GITHUB_OUTPUT
+
+    - name: Generate Changelog
+      id: changelog
+      uses: github-actions-x/changelog@v1.0
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        version: ${{ steps.get-new-version.outputs.NEW_VERSION }}
+
+    - name: Check if pre-release
+      id: check-prerelease
+      run: |
+        if [[ "${{ steps.get-new-version.outputs.NEW_VERSION }}" =~ -(alpha|beta|rc) ]]; then
+          echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+        else
+          echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.get-new-version.outputs.NEW_VERSION }}
+        release_name: Release v${{ steps.get-new-version.outputs.NEW_VERSION }}
+        body: ${{ steps.changelog.outputs.changelog }}
+        prerelease: ${{ steps.check-prerelease.outputs.IS_PRERELEASE }}
