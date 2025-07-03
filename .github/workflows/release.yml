@@ -1,0 +1,40 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0, 1.0.0-beta)'
+        required: true
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Generate Changelog
+      id: changelog
+      uses: github-actions-x/changelog@v1.0
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        version: ${{ github.event.inputs.version }}
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.event.inputs.version }}
+        release_name: Release v${{ github.event.inputs.version }}
+        body: ${{ steps.changelog.outputs.changelog }}
+        prerelease: ${{ github.event.inputs.prerelease }}
