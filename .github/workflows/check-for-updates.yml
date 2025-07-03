@@ -1,85 +1,82 @@
 name: Check for UniVPN Updates
-
 on:
   schedule:
-    - cron: '0 0 * * *' # Run daily at midnight UTC
+    - cron: "0 0 * * *" # Run daily at midnight UTC
   workflow_dispatch: # Allow manual triggering
 
 jobs:
   check-and-download:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Get latest version from website
-      id: get-web-version
-      run: |
-        PAGE_CONTENT=$(curl -s https://www.leagsoft.com/doc/article/103197.html)
-        DOWNLOAD_LINK=$(echo "$PAGE_CONTENT" | grep -o 'onclick="toPage(\'https://download.leagsoft.com/download/UniVPN/linux/univpn-linux-64-.*\\.zip\', \'package\')' | head -n 1)
-
-        if [ -z "$DOWNLOAD_LINK" ]; then
-          echo "No download link found on the page. Exiting."
-          exit 0
-        fi
-
-        # Extract the full URL from the onclick attribute
-        FULL_URL=$(echo "$DOWNLOAD_LINK" | sed -E 's/onclick="toPage\(\'\'([^\']+)\'\'\,\ \'\'package\'\'\)"/\\1/')
-        echo "Found download URL: $FULL_URL"
-
-        # Extract the version from the URL
-        WEB_VERSION=$(echo "$FULL_URL" | sed -E 's/.*univpn-linux-64-(.*)\\.zip/\\1/' | sed -E 's/\\.0*([0-9]+)$/\\.\\1/')
-        echo "Latest web version: $WEB_VERSION"
-        echo "WEB_VERSION=$WEB_VERSION" >> $GITHUB_OUTPUT
-        echo "FULL_URL=$FULL_URL" >> $GITHUB_OUTPUT
-
-    - name: Get current local version
-      id: get-local-version
-      run: |
-        LATEST_LOCAL_FILE=$(ls -v bin/univpn-linux-64-*.zip 2>/dev/null | tail -n 1)
-        if [ -z "$LATEST_LOCAL_FILE" ]; then
-          echo "No local UniVPN zip file found. Setting local version to 0."
-          echo "LOCAL_VERSION=0" >> $GITHUB_OUTPUT
-        else
-          LOCAL_VERSION=$(echo "$LATEST_LOCAL_FILE" | sed -E 's/bin\/univpn-linux-64-(.*)\\.zip/\\1/' | sed -E 's/\\.0*([0-9]+)$/\\.\\1/')
-          echo "Current local version: $LOCAL_VERSION"
-          echo "LOCAL_VERSION=$LOCAL_VERSION" >> $GITHUB_OUTPUT
-        fi
-
-    - name: Compare versions and download if newer
-      if: steps.get-web-version.outputs.WEB_VERSION != '' && steps.get-local-version.outputs.LOCAL_VERSION != ''
-      run: |
-        WEB_VERSION_ARRAY=($(echo ${{ steps.get-web-version.outputs.WEB_VERSION }} | tr '.' '\n'))
-        LOCAL_VERSION_ARRAY=($(echo ${{ steps.get-local-version.outputs.LOCAL_VERSION }} | tr '.' '\n'))
-
-        IS_NEWER=false
-        for i in ${!WEB_VERSION_ARRAY[@]}; do
-          if (( 10#${WEB_VERSION_ARRAY[i]} > 10#${LOCAL_VERSION_ARRAY[i]} )); then
-            IS_NEWER=true
-            break
-          elif (( 10#${WEB_VERSION_ARRAY[i]} < 10#${LOCAL_VERSION_ARRAY[i]} )); then
-            IS_NEWER=false
-            break
+      - name: Get latest version from website
+        id: get-web-version
+        run: |
+          PAGE_CONTENT=$(curl -s https://www.leagsoft.com/doc/article/103197.html)
+          DOWNLOAD_LINK=$(echo "$PAGE_CONTENT" | grep -o "onclick=\"toPage('https://download.leagsoft.com/download/UniVPN/linux/univpn-linux-64-.*\\.zip', 'package')" | head -n 1)
+          if [ -z "$DOWNLOAD_LINK" ]; then
+            echo "No download link found on the page. Exiting."
+            exit 0
           fi
-        done
+          # Extract the full URL from the onclick attribute
+          FULL_URL=$(echo "$DOWNLOAD_LINK" | sed -E "s/onclick=\"toPage\('([^']+)', 'package'\)\"/\1/")
+          echo "Found download URL: $FULL_URL"
+          # Extract the version from the URL
+          WEB_VERSION=$(echo "$FULL_URL" | sed -E 's/.*univpn-linux-64-(.*)\\.zip/\1/' | sed -E 's/\\.0*([0-9]+)$/\.\1/')
+          echo "Latest web version: $WEB_VERSION"
+          echo "WEB_VERSION=$WEB_VERSION" >> $GITHUB_OUTPUT
+          echo "FULL_URL=$FULL_URL" >> $GITHUB_OUTPUT
 
-        if [ "$IS_NEWER" = true ]; then
-          echo "New version ${{ steps.get-web-version.outputs.WEB_VERSION }} is available. Downloading..."
-          mkdir -p bin
-          curl -L -o bin/univpn-linux-64-${{ steps.get-web-version.outputs.WEB_VERSION }}.zip ${{ steps.get-web-version.outputs.FULL_URL }}
-          echo "Downloaded univpn-linux-64-${{ steps.get-web-version.outputs.WEB_VERSION }}.zip to bin/"
-          echo "NEW_FILE_DOWNLOADED=true" >> $GITHUB_OUTPUT
-        else
-          echo "Local version is already the latest or newer. No download needed."
-          echo "NEW_FILE_DOWNLOADED=false" >> $GITHUB_OUTPUT
-        fi
+      - name: Get current local version
+        id: get-local-version
+        run: |
+          LATEST_LOCAL_FILE=$(ls -v bin/univpn-linux-64-*.zip 2>/dev/null | tail -n 1)
+          if [ -z "$LATEST_LOCAL_FILE" ]; then
+            echo "No local UniVPN zip file found. Setting local version to 0."
+            echo "LOCAL_VERSION=0" >> $GITHUB_OUTPUT
+          else
+            LOCAL_VERSION=$(echo "$LATEST_LOCAL_FILE" | sed -E 's/bin\/univpn-linux-64-(.*)\\.zip/\1/' | sed -E 's/\\.0*([0-9]+)$/\.\1/')
+            echo "Current local version: $LOCAL_VERSION"
+            echo "LOCAL_VERSION=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+          fi
 
-    - name: Commit and push new file
-      if: steps.compare-versions-and-download.outputs.NEW_FILE_DOWNLOADED == 'true'
-      run: |
-        git config user.name github-actions[bot]
-        git config user.email github-actions[bot]@users.noreply.github.com
-        git add bin/univpn-linux-64-${{ steps.get-web-version.outputs.WEB_VERSION }}.zip
-        git commit -m "feat: Download UniVPN client version ${{ steps.get-web-version.outputs.WEB_VERSION }}"
-        git push
+      - name: Compare versions and download if newer
+        id: compare-versions-and-download
+        if: steps.get-web-version.outputs.WEB_VERSION != '' && steps.get-local-version.outputs.LOCAL_VERSION != ''
+        run: |
+          WEB_VERSION_ARRAY=($(echo ${{ steps.get-web-version.outputs.WEB_VERSION }} | tr '.' '\n'))
+          LOCAL_VERSION_ARRAY=($(echo ${{ steps.get-local-version.outputs.LOCAL_VERSION }} | tr '.' '\n'))
+          IS_NEWER=false
+
+          # Compare version arrays
+          for i in ${!WEB_VERSION_ARRAY[@]}; do
+            if (( 10#${WEB_VERSION_ARRAY[i]} > 10#${LOCAL_VERSION_ARRAY[i]:-0} )); then
+              IS_NEWER=true
+              break
+            elif (( 10#${WEB_VERSION_ARRAY[i]} < 10#${LOCAL_VERSION_ARRAY[i]:-0} )); then
+              IS_NEWER=false
+              break
+            fi
+          done
+
+          if [ "$IS_NEWER" = true ]; then
+            echo "New version ${{ steps.get-web-version.outputs.WEB_VERSION }} is available. Downloading..."
+            mkdir -p bin
+            curl -L -o bin/univpn-linux-64-${{ steps.get-web-version.outputs.WEB_VERSION }}.zip ${{ steps.get-web-version.outputs.FULL_URL }}
+            echo "Downloaded univpn-linux-64-${{ steps.get-web-version.outputs.WEB_VERSION }}.zip to bin/"
+            echo "NEW_FILE_DOWNLOADED=true" >> $GITHUB_OUTPUT
+          else
+            echo "Local version is already the latest or newer. No download needed."
+            echo "NEW_FILE_DOWNLOADED=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push new file
+        if: steps.compare-versions-and-download.outputs.NEW_FILE_DOWNLOADED == 'true'
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+          git add bin/univpn-linux-64-${{ steps.get-web-version.outputs.WEB_VERSION }}.zip
+          git commit -m "feat: Download UniVPN client version ${{ steps.get-web-version.outputs.WEB_VERSION }}"
+          git push
