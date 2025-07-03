@@ -15,13 +15,13 @@ jobs:
         id: get-web-version
         run: |
           PAGE_CONTENT=$(curl -s https://www.leagsoft.com/doc/article/103197.html)
-          DOWNLOAD_LINK=$(echo "$PAGE_CONTENT" | grep -o "onclick=\"toPage('https://download.leagsoft.com/download/UniVPN/linux/univpn-linux-64-.*\\.zip', 'package')" | head -n 1)
+          DOWNLOAD_LINK=$(echo "$PAGE_CONTENT" | grep -o "onClick=\"toPage('https://download.leagsoft.com/download/UniVPN/linux/univpn-linux-64-.*\\.zip', 'package')" | head -n 1)
           if [ -z "$DOWNLOAD_LINK" ]; then
             echo "No download link found on the page. Exiting."
             exit 0
           fi
           # Extract the full URL from the onclick attribute
-          FULL_URL=$(echo "$DOWNLOAD_LINK" | sed -E "s/onclick=\"toPage\('([^']+)', 'package'\)\"/\1/")
+          FULL_URL=$(echo "$DOWNLOAD_LINK" | sed -E "s/onClick=\"toPage\('([^']+)', 'package'\)\"/\1/")
           echo "Found download URL: $FULL_URL"
           # Extract the version from the URL
           WEB_VERSION=$(echo "$FULL_URL" | sed -E 's/.*univpn-linux-64-(.*)\\.zip/\1/' | sed -E 's/\\.0*([0-9]+)$/\.\1/')
