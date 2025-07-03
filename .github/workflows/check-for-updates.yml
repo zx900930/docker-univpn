@@ -25,7 +25,7 @@ jobs:
         fi
 
         # Extract the full URL from the onclick attribute
-        FULL_URL=$(echo "$DOWNLOAD_LINK" | sed -E 's/onclick="toPage\(\'([^\']+)\'\, \'package\'\)"/\\1/')
+        FULL_URL=$(echo "$DOWNLOAD_LINK" | sed -E 's/onclick="toPage\(\'\'([^\']+)\'\'\,\ \'\'package\'\'\)"/\\1/')
         echo "Found download URL: $FULL_URL"
 
         # Extract the version from the URL
