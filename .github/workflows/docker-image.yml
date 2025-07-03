@@ -34,7 +34,7 @@ jobs:
           echo "No new UniVPN zip file detected in bin/ directory. Using default version."
           echo "VERSION=" >> $GITHUB_OUTPUT
         else
-          VERSION=$(echo "$NEW_FILE" | sed -E 's/bin\/univpn-linux-64-(.*)\\.zip/\\1/' | sed -E 's/\\.0*([0-9]+)$/\\.\1/')
+          VERSION=$(echo "$NEW_FILE" | sed -E 's/bin\/univpn-linux-64-(.*)\\.zip/\\1/' | sed -E 's/\\.0*([0-9]+)$/\\.\\1/')
           echo "Detected new version: $VERSION"
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         fi
