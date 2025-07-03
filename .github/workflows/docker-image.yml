@@ -101,15 +101,6 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         version: ${{ steps.get-new-version.outputs.NEW_VERSION }}
 
-    - name: Check if pre-release
-      id: check-prerelease
-      run: |
-        if [[ "${{ steps.get-new-version.outputs.NEW_VERSION }}" =~ -(alpha|beta|rc) ]]; then
-          echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
-        else
-          echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
-        fi
-
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -119,4 +110,4 @@ jobs:
         tag_name: v${{ steps.get-new-version.outputs.NEW_VERSION }}
         release_name: Release v${{ steps.get-new-version.outputs.NEW_VERSION }}
         body: ${{ steps.changelog.outputs.changelog }}
-        prerelease: ${{ steps.check-prerelease.outputs.IS_PRERELEASE }}
+        prerelease: true
