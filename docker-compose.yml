@@ -50,6 +50,15 @@ services:
       # Provides a default password if VNC_PASSWORD is not set.
       - VNC_PW=${VNC_PASSWORD:-univpn} # CHANGE defaultpassword!
 
+      # --- Enable Auto Reconnect ---
+      - AUTO_RECONNECT=${AUTO_RECONNECT:-false}
+
+      # --- What IP to ping to check internet? (e.g. 1.1.1.1 or your company internal server) ---
+      - RECONNECT_PING_TARGET=${RECONNECT_PING_TARGET:-1.1.1.1}
+
+      # --- How many seconds to wait before starting to ping (Time for you to type password) ---
+      - RECONNECT_GRACE_PERIOD=${RECONNECT_GRACE_PERIOD:-60}
+
       # You can add other ENV variables needed by the container/app here
       # Example (already set in Dockerfile, but could be overridden):
       # - TZ=Asia/Shanghai

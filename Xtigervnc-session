@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# Optional: Set keyboard layout if needed
+if test -r /etc/default/keyboard && test -x /usr/bin/setxkbmap; then
+  . /etc/default/keyboard
+  /usr/bin/setxkbmap \
+    -model   "${XKBMODEL}" \
+    -layout  "${XKBLAYOUT}" \
+    -variant "${XKBVARIANT}" \
+    "${XKBOPTIONS}"
+fi
+
+tigervncconfig -iconic &
+
+# Launch UniVPN via Keeper Script in the background
+/usr/local/bin/univpn-keeper.sh &
+
+# Keep session running until explicitly killed
+while true; do
+  sleep 3600
+done

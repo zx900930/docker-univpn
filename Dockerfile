@@ -31,6 +31,11 @@ ENV VNC_PW=${VNC_PASSWORD}
 ENV VNC_DEPTH=${VNC_DEPTH}
 ENV TZ=Asia/Shanghai
 
+# --- Auto Reconnect Configuration ---
+ENV AUTO_RECONNECT=false
+ENV RECONNECT_PING_TARGET=8.8.8.8
+ENV RECONNECT_GRACE_PERIOD=60
+
 # --- Pre-configure debconf for keyboard-configuration ---
 RUN echo "keyboard-configuration keyboard-configuration/layoutcode string us" | debconf-set-selections && \
     echo "keyboard-configuration keyboard-configuration/modelcode string pc105" | debconf-set-selections && \
@@ -46,6 +51,7 @@ RUN apt-get update && \
     sudo \
     net-tools \
     iproute2 \
+    iputils-ping \
     dante-server \   
     tinyproxy \   
     dbus \
@@ -83,38 +89,11 @@ RUN echo "Updating font cache..." && \
     fc-cache -fv && \
     echo "Font cache updated."
 
-# Prevent system to start a WM before fluxbox
-RUN echo "Replacing /etc/X11/Xtigervnc-session..." && \
-    # Create a simplified session script
-    echo '#!/bin/sh' > /etc/X11/Xtigervnc-session && \
-    echo '' >> /etc/X11/Xtigervnc-session && \
-    # Optional: Set keyboard layout if needed
-    echo 'if test -r /etc/default/keyboard && test -x /usr/bin/setxkbmap; then' >> /etc/X11/Xtigervnc-session && \
-    echo '  . /etc/default/keyboard' >> /etc/X11/Xtigervnc-session && \
-    echo '  /usr/bin/setxkbmap \' >> /etc/X11/Xtigervnc-session && \
-    echo '    -model   "${XKBMODEL}" \' >> /etc/X11/Xtigervnc-session && \
-    echo '    -layout  "${XKBLAYOUT}" \' >> /etc/X11/Xtigervnc-session && \
-    echo '    -variant "${XKBVARIANT}" \' >> /etc/X11/Xtigervnc-session && \
-    echo '    "${XKBOPTIONS}"' >> /etc/X11/Xtigervnc-session && \
-    echo 'fi' >> /etc/X11/Xtigervnc-session && \
-    echo '' >> /etc/X11/Xtigervnc-session && \
-    # Optional: Start vncconfig if you want it
-    echo 'tigervncconfig -iconic &' >> /etc/X11/Xtigervnc-session && \
-    echo '' >> /etc/X11/Xtigervnc-session && \
-    # --- Add UniVPN launch ---
-    echo '# Launch UniVPN in the background' >> /etc/X11/Xtigervnc-session && \
-    echo '/usr/local/UniVPN/UniVPN &' >> /etc/X11/Xtigervnc-session && \
-    # --- End UniVPN launch ---
-    echo '' >> /etc/X11/Xtigervnc-session && \
-    # --- Add a wait loop to keep the session alive ---
-    echo '# Keep session running until explicitly killed' >> /etc/X11/Xtigervnc-session && \
-    echo 'while true; do' >> /etc/X11/Xtigervnc-session && \
-    echo '  sleep 3600' >> /etc/X11/Xtigervnc-session && \
-    echo 'done' >> /etc/X11/Xtigervnc-session && \
-    # --- End wait loop ---
-    echo '' >> /etc/X11/Xtigervnc-session && \
-    chmod +x /etc/X11/Xtigervnc-session && \
-    echo "Finished replacing Xtigervnc-session."
+# --- Create a Helper Reconnect Command ---
+RUN echo '#!/bin/bash' > /usr/local/bin/reconnect && \
+    echo 'echo "Killing UniVPN process to trigger restart..."' >> /usr/local/bin/reconnect && \
+    echo 'pkill -f "/usr/local/UniVPN/UniVPN"' >> /usr/local/bin/reconnect && \
+    chmod +x /usr/local/bin/reconnect
 
 # Create the non-root user and group, add to sudoers
 RUN groupadd --gid ${USER_GID} ${USERNAME} && \
@@ -200,6 +179,14 @@ RUN chmod +x /usr/local/bin/wait_and_start_dante.sh
 # Copy noVNC launch script
 COPY novnc_launch.sh /usr/local/bin/novnc_launch.sh
 RUN chmod +x /usr/local/bin/novnc_launch.sh
+
+# --- Copy the UniVPN Keeper Script ---
+COPY univpn-keeper.sh /usr/local/bin/univpn-keeper.sh
+RUN chmod +x /usr/local/bin/univpn-keeper.sh
+
+# --- Copy the Xtigervnc-session Script ---
+COPY Xtigervnc-session /etc/X11/Xtigervnc-session
+RUN chmod +x /etc/X11/Xtigervnc-session
 
 # Set final working directory to user's home
 WORKDIR /home/${USERNAME}

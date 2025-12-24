@@ -5,7 +5,9 @@
 [![Docker Hub](https://img.shields.io/docker/pulls/triatk/univpn.svg)](https://hub.docker.com/r/triatk/univpn)
 [![Docker Image Size](https://img.shields.io/docker/image-size/triatk/univpn/latest)](https://hub.docker.com/r/triatk/univpn)
 
-This project provides a Docker container for the Huawei UniVPN GUI client (version **10781.18.1.0512**, released on May 12th, 2025), accessible via VNC or a web browser (noVNC). It also includes a SOCKS5 proxy (Dante) and an HTTP proxy (Tinyproxy) to route traffic from host applications through the container's VPN connection. The UniVPN application is configured to start automatically within the VNC session.
+This project provides a Docker container for the Huawei UniVPN GUI client (version **10781.18.1.0512**, released on May 12th, 2025), accessible via VNC or a web browser (noVNC). It also includes a SOCKS5 proxy (Dante) and an HTTP proxy (Tinyproxy) to route traffic from host applications through the container's VPN connection.
+
+**New in this version:** The container includes an intelligent **Keep-Alive system** that can automatically restart the VPN client if the connection drops or the application crashes.
 
 **Disclaimer:** This project is unofficial and not affiliated with or endorsed by Huawei. The Huawei UniVPN client software itself is proprietary to Huawei. While the client binary is included in this repository's `./bin` directory for build convenience, **you are responsible for complying with Huawei's terms of service and licensing agreements** regarding its use. This container is provided for technical convenience, isolation, and remote access purposes only. The maintainers of this repository do not grant you any license to use the Huawei software.
 
@@ -21,15 +23,14 @@ This project provides a Docker container for the Huawei UniVPN GUI client (versi
 
 ## Key Features
 
-- Run the Huawei UniVPN GUI client in an isolated container.
-- Access the GUI remotely via standard VNC clients or a web browser (noVNC).
-- UniVPN client starts automatically within the VNC session (Fluxbox WM).
-- Includes Chinese fonts for improved display compatibility.
-- Provides a **SOCKS5 proxy** on port `1080` allowing host applications to use the container's VPN connection (respects container's routing table - split tunnel by default).
-- Provides an **HTTP proxy** on port `8888` which chains to the SOCKS5 proxy, allowing host applications to use the container's VPN connection.
-- Configured via Docker Compose for easy management.
-- Supports setting a **custom MAC address** for the container.
-- Includes necessary privileges (`NET_ADMIN`) and **TUN device access** (`/dev/net/tun`) required by many VPN clients.
+- **Isolated GUI:** Run the Huawei UniVPN GUI client in a secure Docker container.
+- **Remote Access:** Access via VNC clients or a web browser (noVNC).
+- **Auto-Start & Keep-Alive:** The UniVPN client starts automatically. A keeper script monitors the process and can automatically restart it if it crashes or if the network connection is lost (Auto-Reconnect).
+- **Proxies:**
+  - **SOCKS5** (Port `1080`): Routes traffic through the VPN.
+  - **HTTP** (Port `8888`): Chains to SOCKS5, allowing HTTP-based apps to use the VPN.
+- **Configurable:** Managed via Docker Compose and `.env` files.
+- **Privileges:** Includes `NET_ADMIN` and `TUN` device access required for VPNs.
 
 ## Prerequisites
 
@@ -47,16 +48,25 @@ This project provides a Docker container for the Huawei UniVPN GUI client (versi
     ```
 
 2.  **Create `.env` File:**
-    In the `docker-univpn` directory, create a file named `.env` to store your configuration secrets. Add the following lines, **replacing the example values** with your desired VNC password and the required MAC address:
+    In the `docker-univpn` directory, create a file named `.env`. Copy the following content and adjust the values:
 
     ```dotenv
     # .env file
+
+    # Security & Network
     VNC_PASSWORD=YourStrongVncPassword123
     SPOOF_MAC=00:1A:2B:3C:4D:5E
-    ```
 
-    - `VNC_PASSWORD`: Password to access the VNC/noVNC session. **Choose a strong password.**
-    - `SPOOF_MAC`: The specific MAC address required by your VPN server. Format: `XX:XX:XX:XX:XX:XX`.
+    # --- Auto Reconnect Settings ---
+    # Set to 'true' to enable auto-restart when network connectivity is lost
+    AUTO_RECONNECT=true
+
+    # The IP address to ping to check connectivity (e.g. 8.8.8.8 or your VPN's internal gateway)
+    RECONNECT_PING_TARGET=8.8.8.8
+
+    # Time (in seconds) to wait for login before starting connectivity checks
+    RECONNECT_GRACE_PERIOD=60
+    ```
 
 3.  **Start the Container:**
 
@@ -64,83 +74,64 @@ This project provides a Docker container for the Huawei UniVPN GUI client (versi
     docker-compose up -d
     ```
 
-    This will pull the image (if needed), create, and start the container in the background.
+4.  **Connect to the GUI:**
 
-4.  **Connect to the GUI:** You have two options:
+    - **VNC Client:** Connect to `localhost:5901` (Password: `VNC_PASSWORD`).
+    - **Web Browser:** Go to `http://localhost:6901/vnc.html` (Password: `VNC_PASSWORD`).
 
-    - **Option A: VNC Client:**
-      - Use a VNC viewer application (TigerVNC, RealVNC, Remmina, etc.).
-      - Connect to: `localhost:5901` (or replace `localhost` with your Docker host's IP if connecting remotely).
-      - Enter the `VNC_PASSWORD` you set in the `.env` file when prompted.
-    - **Option B: Web Browser (noVNC):**
-      - Open your web browser.
-      - Navigate to: `http://localhost:6901/vnc.html` (or replace `localhost` with your Docker host's IP).
-      - Click "Connect".
-      - Enter the `VNC_PASSWORD` you set in the `.env` file when prompted.
+5.  **Use the Proxies:**
+    - **SOCKS5:** `localhost:1080`
+    - **HTTP:** `localhost:8888`
 
-5.  **Use the Proxies (Optional):**
-    - Establish the VPN connection using the UniVPN client inside the VNC session first.
-    - **SOCKS5 Proxy:**
-      - Configure applications on your **host machine** (e.g., web browser, specific tools) to use a **SOCKS5 proxy**.
-      - Proxy Host/IP: `localhost` (or `127.0.0.1`)
-      - Proxy Port: `1080`
-    - **HTTP Proxy:**
-      - Configure applications on your **host machine** to use an **HTTP proxy**.
-      - Proxy Host/IP: `localhost` (or `127.0.0.1`)
-      - Proxy Port: `8888`
-    - **Note:** Based on the default UniVPN routing table observed (split-tunnel), only traffic destined for the specific VPN networks configured by UniVPN will be routed through the tunnel via these proxies. General internet traffic will likely bypass the VPN.
+## Auto-Reconnect & Manual Restart
+
+The container uses a wrapper script (`univpn-keeper.sh`) to manage the VPN application.
+
+### Auto-Reconnect Logic
+
+If `AUTO_RECONNECT=true` is set in your `.env` file:
+
+1.  The VPN starts.
+2.  The script waits for `RECONNECT_GRACE_PERIOD` seconds (giving you time to type your password/2FA).
+3.  After the grace period, it pings `RECONNECT_PING_TARGET` every 10 seconds.
+4.  If the ping fails (network timeout), the script **kills the VPN process**.
+5.  The loop detects the process exit and **immediately restarts a fresh VPN instance**.
+
+### Manual Restart
+
+If the VPN freezes or you need to restart it manually without restarting the whole container:
+
+- **From Host Terminal:**
+  ```bash
+  docker exec univpn-vnc reconnect
+  ```
+- **From Inside VNC:**
+  Open the Fluxbox terminal (Right Click -> Applications -> Shells -> Bash) and type:
+  ```bash
+  reconnect
+  ```
 
 ## Inside the Container
 
-- The container runs a lightweight Fluxbox window manager session.
-- The **UniVPN GUI application (`/usr/local/UniVPN/UniVPN`) is launched automatically** when the VNC session starts.
-- The standard Fluxbox right-click menu may not function reliably in this setup; interaction should primarily be through the auto-launched UniVPN application.
-- The Dante SOCKS5 proxy waits for the `cnem_vnic` interface (created by UniVPN) before starting its service.
-- The Tinyproxy HTTP proxy starts after Dante and forwards requests to it.
+- The container runs a Fluxbox window manager.
+- **UniVPN GUI** is launched by `/usr/local/bin/univpn-keeper.sh`.
+- **Dante (SOCKS5)** and **Tinyproxy (HTTP)** run in the background via Supervisor.
 
-## Configuration
+## Configuration & Persistence
 
-- **VNC Password & MAC Address:** Configure via the `.env` file (see Step 2 above).
-- **Ports, Resources, Capabilities:** Modify the `docker-compose.yml` file if needed.
-- **UniVPN Client Settings:** Configure the UniVPN client itself _inside_ the VNC session as you normally would. For persistence of these settings across container restarts, consider adding a volume mount in `docker-compose.yml` to map a host directory to the client's configuration directory within the container (location depends on the client).
+- **Environment Variables:** All settings are controlled via the `.env` file.
+- **Persistence:** To save your VPN profiles and settings, uncomment the volume in `docker-compose.yml`:
   ```yaml
-  # Example volume mount in docker-compose.yml:
-  # volumes:
-  #   - ./univpn_client_config:/home/vpnuser/UniVPN
+  volumes:
+    - ./univpn_config:/home/vpnuser/UniVPN
   ```
 
 ## Troubleshooting
 
-- **Container Crashing:** Check logs immediately: `docker-compose logs univpn`
-- **Cannot Connect to VNC/noVNC:** Ensure the container is running (`docker ps`), check port mappings in `docker-compose.yml`, verify firewall rules on the host.
-- **VPN Connection Fails:**
-  - Check UniVPN client logs inside the VNC session.
-  - Verify `NET_ADMIN` and `/dev/net/tun` access are correctly configured in `docker-compose.yml`.
-  - Ensure the `SPOOF_MAC` in `.env` is correct.
-  - As a last resort, if specific device access or capabilities are missing, you _might_ need `privileged: true` in `docker-compose.yml`, but understand the security implications.
-- **SOCKS/HTTP Proxy Not Working:**
-  - Ensure the VPN is connected inside the container _before_ trying to use the proxy.
-  - Check Dante logs: `docker exec -it <container_name> cat /var/log/sockd.log` or supervisor logs `/var/log/supervisor/danted_*.log`.
-  - Check Tinyproxy logs: `docker exec -it <container_name> cat /var/log/tinyproxy.log` or supervisor logs `/var/log/supervisor/tinyproxy_*.log`.
-  - Verify host application proxy settings (e.g., SOCKS5 for port 1080, HTTP for port 8888, localhost).
-
-## Building Locally (Alternative)
-
-While using Docker Compose is recommended, you can build the image manually:
-
-```bash
-# Make sure you have the correct VNC password for the build arg
-docker build --build-arg VNC_PASSWORD=YourSecurePassword123 . -t my-univpn-vnc:latest
-```
-
-You would then need a complex `docker run` command equivalent to the `docker-compose.yml` settings.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit issues and pull requests.
+- **Looping Restarts:** If you see the VPN opening and closing repeatedly, check if `RECONNECT_PING_TARGET` is reachable. If the VPN blocks internet access but allows internal IPs, set the target to an internal server IP.
+- **Not enough time to login:** Increase `RECONNECT_GRACE_PERIOD` in the `.env` file.
+- **Container Crashing:** Check logs: `docker-compose logs univpn`.
 
 ## License
 
-The Dockerfile and scripts in this repository are provided under the [MIT License](LICENSE) .
-
-**Important:** This license applies _only_ to the files created for this project (Dockerfile, scripts, documentation). It **does not** apply to the Huawei UniVPN client software located in the `./bin` directory, which is governed by its own license agreement provided by Huawei. Your use of the included Huawei software is subject to your acceptance of Huawei's terms.
+The Dockerfile and scripts in this repository are provided under the [MIT License](LICENSE). The Huawei software included in `./bin` is proprietary.
