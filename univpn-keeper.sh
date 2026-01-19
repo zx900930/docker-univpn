@@ -1,43 +1,80 @@
 #!/bin/bash
 
-# Load configuration from Environment Variables or use defaults
+# Load configuration
 TARGET=${RECONNECT_PING_TARGET:-8.8.8.8}
 ENABLE=${AUTO_RECONNECT:-false}
 GRACE=${RECONNECT_GRACE_PERIOD:-60}
+APP_CMD="/usr/local/UniVPN/UniVPN"
+
+# Helper function for logging with timestamp
+log() {
+    echo "[Keeper] $(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
+
+# Helper function to ensure a process is dead
+ensure_stopped() {
+    local pid=$1
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        log "Stopping VPN process (PID: $pid)..."
+        kill "$pid"
+        
+        # Wait up to 20 seconds for graceful exit
+        local count=0
+        while kill -0 "$pid" 2>/dev/null; do
+            if [ $count -ge 20 ]; then
+                log "Process stuck. Force killing (SIGKILL)..."
+                kill -9 "$pid" 2>/dev/null
+                break
+            fi
+            sleep 1
+            ((count++))
+        done
+        log "Old process stopped."
+    fi
+}
+
+# Cleanup any stray instances on container start
+pkill -f "$APP_CMD" 2>/dev/null
 
 while true; do
-  echo "[Keeper] Starting UniVPN..."
+  log "Starting UniVPN..."
   
   # Start UniVPN in the background
-  /usr/local/UniVPN/UniVPN &
+  $APP_CMD &
   VPN_PID=$!
+  log "UniVPN started with PID: $VPN_PID"
 
   if [ "$ENABLE" = "true" ]; then
-    echo "[Keeper] Auto-reconnect ENABLED. Target: $TARGET"
-    echo "[Keeper] Waiting ${GRACE}s for login/connection..."
+    log "Auto-reconnect ENABLED. Target: $TARGET"
+    log "Waiting ${GRACE}s for login/connection..."
     sleep $GRACE
 
-    # Monitor Loop: Check connection as long as the process is alive
+    # Monitor Loop
     while kill -0 $VPN_PID 2>/dev/null; do
-      # Try pinging.
+      # 1. First Ping Test
       if ! ping -c 1 -W 2 "$TARGET" > /dev/null 2>&1; then
-         # Double check to prevent false positives (wait 1 sec and retry)
-         sleep 1
+         # 2. Log the first failure
+         log "WARNING: Ping check to $TARGET failed. Retrying in 2 seconds..."
+         sleep 2
+         
+         # 3. Second Ping Test (Double Check)
          if ! ping -c 1 -W 2 "$TARGET" > /dev/null 2>&1; then
-             echo "[Keeper] Connection lost (Ping failed). Killing VPN..."
-             kill $VPN_PID
-             break
+             log "ERROR: Connection lost (Ping failed). Triggering restart..."
+             break # Break the inner loop to reach cleanup logic
          fi
       fi
-      # Check every 10 seconds
+      
+      # Wait before next check
       sleep 10
     done
   else
-    echo "[Keeper] Auto-reconnect DISABLED. Waiting for process exit..."
-    # Wait for the process to end naturally
+    log "Auto-reconnect DISABLED. Waiting for process exit..."
     wait $VPN_PID
   fi
 
-  echo "[Keeper] UniVPN exited. Restarting in 5 seconds..."
+  # Ensure the old process is completely dead before restarting loop
+  ensure_stopped $VPN_PID
+
+  log "Restarting in 5 seconds..."
   sleep 5
 done
