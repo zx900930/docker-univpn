@@ -2,7 +2,6 @@ name: Docker Image CI
 
 on:
   push:
-    # ### CHANGED: Added cli-only-image to branches
     branches: ["main", "cli-only-image"]
     tags: ["*.*.*.*"]
   pull_request:
@@ -11,6 +10,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Define the Matrix Strategy
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Configuration for the Standard Image
+          - name: standard
+            dockerfile: Dockerfile
+            suffix: ""
+          # Configuration for the CLI Image
+          - name: cli
+            dockerfile: Dockerfile.cli
+            suffix: "-cli"
+
     outputs:
       new_version: ${{ steps.get-version.outputs.VERSION }}
 
@@ -55,12 +68,10 @@ jobs:
         with:
           images: |
             triatk/univpn
-          # ### CHANGED: Added conditional suffix logic
-          # If branch is 'cli-only-image', suffix is '-cli'. Otherwise, it is empty.
-          # 'latest=true' combined with suffix '-cli' will generate 'latest-cli'.
+          # Apply the suffix from the matrix (empty for standard, '-cli' for cli)
           flavor: |
             latest=true
-            suffix=${{ github.ref == 'refs/heads/cli-only-image' && '-cli' || '' }}
+            suffix=${{ matrix.suffix }}
           tags: |
             type=schedule
             type=ref,event=branch
@@ -78,14 +89,15 @@ jobs:
         with:
           push: true
           platforms: linux/amd64
+          # Use the specific Dockerfile from the matrix
+          file: ${{ matrix.dockerfile }}
           tags: ${{ steps.meta_univpn.outputs.tags }}
           labels: ${{ steps.meta_univpn.outputs.labels }}
 
   create-release:
     runs-on: ubuntu-latest
     needs: build
-    # This job will still only run for 'main', which is likely what you want
-    # (you usually don't want releases generated for feature branches).
+    # Only run on main branch pushes and if a version was detected
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.outputs.new_version != ''
 
     steps:
