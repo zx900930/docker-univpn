@@ -70,7 +70,6 @@ jobs:
             triatk/univpn
           # Apply the suffix from the matrix (empty for standard, '-cli' for cli)
           flavor: |
-            latest=true
             suffix=${{ matrix.suffix }}
           tags: |
             type=schedule
@@ -81,6 +80,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha
+            type=raw,value=latest
             type=raw,value=${{ steps.get-version.outputs.VERSION }},enable=${{ steps.get-version.outputs.VERSION != '' }}
 
       - name: Build and push
