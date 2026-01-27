@@ -1,0 +1,142 @@
+# Use Ubuntu 22.04 LTS as the base image
+FROM ubuntu:22.04
+
+# Set Arguments
+ARG CLIENT_VERSION=10781.18.1.0512
+ARG ZIP_FILE_REL_PATH=bin/univpn-linux-64-${CLIENT_VERSION}.zip
+ARG INSTALLER_SOURCE_DIR=/home/UniVPN
+ARG INSTALLER_RUN_FILE=univpn-linux-64-${CLIENT_VERSION}.run
+ARG ACTUAL_INSTALL_DIR=/usr/local/UniVPN
+ARG INSTALL_LOG_DIR=${ACTUAL_INSTALL_DIR}/log
+ARG INSTALL_LOG_FILE=${INSTALL_LOG_DIR}/install.log
+ARG USERNAME=vpnuser
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV USER=${USERNAME}
+ENV HOME=/home/${USERNAME}
+ENV TZ=Asia/Shanghai
+
+# --- Auto Reconnect Configuration ---
+ENV AUTO_RECONNECT=false
+ENV RECONNECT_PING_TARGET=8.8.8.8
+ENV RECONNECT_GRACE_PERIOD=60
+
+# Install dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    unzip \
+    locales \
+    ca-certificates \
+    sudo \
+    net-tools \
+    iproute2 \
+    iputils-ping \
+    dante-server \
+    tinyproxy \
+    dbus \
+    tzdata \
+    supervisor \
+    && \
+    locale-gen C.UTF-8 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Configure timezone and fix dbus directory permissions
+RUN ln -fs /usr/share/zoneinfo/$TZ /etc/localtime && \
+    dpkg-reconfigure -f noninteractive tzdata && \
+    mkdir -p /var/run/dbus && \
+    chown messagebus:messagebus /var/run/dbus
+
+# --- Create a Helper Reconnect Command ---
+RUN echo '#!/bin/bash' > /usr/local/bin/reconnect && \
+    echo 'echo "Killing UniVPN process to trigger restart..."' >> /usr/local/bin/reconnect && \
+    echo 'pkill -f "/usr/local/UniVPN/UniVPN"' >> /usr/local/bin/reconnect && \
+    chmod +x /usr/local/bin/reconnect
+
+# Create the non-root user and group, add to sudoers
+RUN groupadd --gid ${USER_GID} ${USERNAME} && \
+    useradd --uid ${USER_UID} --gid ${USER_GID} --shell /bin/bash --create-home ${USERNAME} && \
+    adduser ${USERNAME} sudo && \
+    echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+# Verify home directory ownership and permissions
+RUN echo "Verifying ${USERNAME} home directory..." && \
+    ls -ld /home/${USERNAME} && \
+    chown ${USERNAME}:${USERNAME} /home/${USERNAME} && \
+    chmod 750 /home/${USERNAME} && \
+    echo "Ownership/permissions verified for /home/${USERNAME}"
+
+# Create installer source directory owned by user
+RUN mkdir -p ${INSTALLER_SOURCE_DIR} && \
+    chown ${USERNAME}:${USERNAME} ${INSTALLER_SOURCE_DIR}
+
+# Copy the installer zip file into that directory
+COPY ${ZIP_FILE_REL_PATH} ${INSTALLER_SOURCE_DIR}/installer.zip
+
+# Set the working directory TO the installer source directory
+WORKDIR ${INSTALLER_SOURCE_DIR}
+
+# Unzip the installer within this directory and remove the zip file
+RUN unzip installer.zip && \
+    rm installer.zip && \
+    echo "Listing extracted files in ${INSTALLER_SOURCE_DIR}:" && \
+    ls -l
+
+# Verify the expected installer file exists in the current dir and make it executable
+RUN if [ ! -f ${INSTALLER_RUN_FILE} ]; then \
+        echo "Error: Expected installer ${INSTALLER_RUN_FILE} not found in ${INSTALLER_SOURCE_DIR}."; \
+        exit 1; \
+    fi && \
+    chmod +x ${INSTALLER_RUN_FILE} && \
+    echo "Made ${INSTALLER_RUN_FILE} executable in ${INSTALLER_SOURCE_DIR}."
+
+# Ensure the target log directory exists BEFORE running the installer
+RUN mkdir -p ${INSTALL_LOG_DIR}
+
+# Run the installer FROM the current directory, redirecting output to the log file
+RUN echo "Running installer as root from $(pwd)... Output logged to ${INSTALL_LOG_FILE}" && \
+    ./${INSTALLER_RUN_FILE} > ${INSTALL_LOG_FILE} 2>&1 \
+    && \
+    echo "Installation finished. Check ${INSTALL_LOG_FILE} for details."
+
+# Clean up the installer file after successful execution
+RUN rm ${INSTALLER_RUN_FILE} && \
+    echo "Removed installer file ${INSTALLER_RUN_FILE}."
+
+# --- Supervisor Setup ---
+# Create supervisor log directory
+RUN mkdir -p /var/log/supervisor
+
+# Copy supervisor configuration
+COPY supervisord.conf /etc/supervisor/supervisord.conf
+
+# Copy Dante configuration
+COPY danted.conf /etc/danted.conf
+RUN chown ${USERNAME}:${USERNAME} /etc/danted.conf
+
+# Copy Tinyproxy configuration
+COPY tinyproxy.conf /etc/tinyproxy/tinyproxy.conf
+
+# Copy Dante wrapper script
+COPY wait_and_start_dante.sh /usr/local/bin/wait_and_start_dante.sh
+RUN chmod +x /usr/local/bin/wait_and_start_dante.sh
+
+# --- Copy the UniVPN Keeper Script ---
+COPY univpn-keeper.sh /usr/local/bin/univpn-keeper.sh
+RUN chmod +x /usr/local/bin/univpn-keeper.sh
+
+# Set final working directory to user's home
+WORKDIR /home/${USERNAME}
+
+# Default command to start a bash shell, allowing user to interact
+CMD ["/bin/bash"]
+
+# --- Optional Metadata ---
+LABEL maintainer="Xavier Xiong <zx900930@gmail.com>"
+LABEL version="${CLIENT_VERSION}"
+LABEL description="Docker container for Huawei UniVPN CLI Client (v${CLIENT_VERSION})"

@@ -2,8 +2,7 @@
 
 [简体中文](README_zh.md)
 
-[![Docker Hub](https://img.shields.io/docker/pulls/triatk/univpn.svg)](https://hub.docker.com/r/triatk/univpn)
-[![Docker Image Size](https://img.shields.io/docker/image-size/triatk/univpn/latest)](https://hub.docker.com/r/triatk/univpn)
+[![Docker Hub](https://img.shields.io/docker/pulls/triatk/univpn.svg)](https://hub.docker.com/r/triatk/univpn) [![Docker Image Size](https://img.shields.io/docker/image-size/triatk/univpn/latest)](https://hub.docker.com/r/triatk/univpn)
 
 This project provides a Docker container for the Huawei UniVPN GUI client (version **10781.18.1.0512**, released on May 12th, 2025), accessible via VNC or a web browser (noVNC). It also includes a SOCKS5 proxy (Dante) and an HTTP proxy (Tinyproxy) to route traffic from host applications through the container's VPN connection.
 
@@ -82,6 +81,47 @@ This project provides a Docker container for the Huawei UniVPN GUI client (versi
 5.  **Use the Proxies:**
     - **SOCKS5:** `localhost:1080`
     - **HTTP:** `localhost:8888`
+
+## CLI-Only Docker Image
+
+This repository also provides a `Dockerfile.cli` for building a command-line interface (CLI) only version of the UniVPN client. This image is suitable for environments where GUI access is not needed, such as CI/CD pipelines, scripting, or headless servers.
+
+**New Dockerfile:** `Dockerfile.cli`
+**New Docker Image:** `triatk/univpn-cli` (available on Docker Hub)
+
+### Building the CLI Image
+
+The existing CI workflow (`.github/workflows/docker-image.yml`) has been updated to automatically build and push the `triatk/univpn-cli` image when changes are pushed to the `cli-only-image` branch.
+
+To build it manually, you can use:
+
+```bash
+# Ensure you have the zip file in ./bin/
+# Build the CLI image (replace 'latest' with a version tag if desired)
+```bash
+docker build -t triatk/univpn-cli:latest -f Dockerfile.cli .
+
+# To push to Docker Hub (requires login)
+# docker login
+# docker push triatk/univpn-cli:latest
+```
+
+### Using the CLI Image
+
+The CLI image is designed for direct command execution. You would typically run commands like `vpn_client login`, `vpn_client connect`, etc., inside the container.
+
+Example:
+```bash
+# Assuming you have your VPN credentials and profile configured
+# and the Dockerfile.cli uses a CMD to launch bash
+```bash
+docker run --rm -it \
+  -v ./univpn_config:/home/vpnuser/UniVPN \
+  --name univpn-cli \
+  triatk/univpn-cli:latest \
+  bash -c "/usr/local/UniVPN/UniVPN --login --vpn-profile my_profile"
+```
+*Note: For actual usage, you would need to adapt the `CMD` in `Dockerfile.cli` or use `docker run` with specific commands. The current `Dockerfile.cli` has `CMD ["/bin/bash"]`, allowing interactive shell access.*
 
 ## Auto-Reconnect & Manual Restart
 
