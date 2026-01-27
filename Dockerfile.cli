@@ -130,11 +130,17 @@ RUN chmod +x /usr/local/bin/wait_and_start_dante.sh
 COPY univpn-keeper.sh /usr/local/bin/univpn-keeper.sh
 RUN chmod +x /usr/local/bin/univpn-keeper.sh
 
+# --- Config UniVPN session autoconnect ---
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 # Set final working directory to user's home
 WORKDIR /home/${USERNAME}
 
-# Default command to start a bash shell, allowing user to interact
-CMD ["/bin/bash"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+# Run Supervisor as the main process
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
 
 # --- Optional Metadata ---
 LABEL maintainer="Xavier Xiong <zx900930@gmail.com>"
