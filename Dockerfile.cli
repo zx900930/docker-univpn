@@ -113,7 +113,7 @@ RUN rm ${INSTALLER_RUN_FILE} && \
 RUN mkdir -p /var/log/supervisor
 
 # Copy supervisor configuration
-COPY supervisord.conf /etc/supervisor/supervisord.conf
+COPY supervisord.conf.cli /etc/supervisor/supervisord.conf
 
 # Copy Dante configuration
 COPY danted.conf /etc/danted.conf
