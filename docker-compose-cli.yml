@@ -1,0 +1,65 @@
+version: "3.8" # Use a recent compose version
+
+services:
+  univpn:
+    image: triatk/univpn:latest-cli
+    container_name: univpn
+    restart: unless-stopped
+
+    # --- Network & Privileges ---
+    cap_add:
+      - NET_ADMIN # Crucial: Allows modifying network interfaces, routes (needed by VPNs)
+
+    # --- !!! IMPORTANT NOTE on Privileges !!! ---
+    # NET_ADMIN is often sufficient, but some VPN clients might need more.
+    # If UniVPN fails to establish connection or modify routes properly,
+    # you might need full privileges and host network mode.
+    # UNCOMMENT the following lines ONLY IF NECESSARY and understand the security risks.
+    # Using privileged or host network significantly reduces container isolation.
+    #
+    # privileged: true                # Grants full host device access
+    # network_mode: host              # Uses host's network, 'ports' section below is ignored
+
+    # --- Grant Access to TUN Device ---
+    # Allows the container to create TUN/TAP interfaces by accessing the host's control device.
+    # Requires /dev/net/tun to exist on the HOST system (load 'tun' module if needed: sudo modprobe tun)
+    devices:
+      - "/dev/net/tun:/dev/net/tun"
+
+    # --- Set Specific MAC Address ---
+    # Reads the SPOOF_MAC variable from the .env file or host environment.
+    # Ensure the format is valid (e.g., 00:11:22:33:44:55)
+    # THIS ONLY WORKS IF network_mode IS NOT set to 'host'.
+    mac_address: ${SPOOF_MAC:-02:42:ac:11:00:01}
+
+    ports:
+      # Note: 'ports' mapping is ignored if network_mode: host is enabled above.
+      - "1080:1080" # SOCKS5 Proxy Port
+      - "8888:8888" # HTTP Proxy Port
+
+    # --- Environment Variables ---
+    environment:
+      # VPN Credentials (REQUIRED)
+      - VPN_USERNAME=${VPN_USERNAME}
+      - VPN_PASSWORD=${VPN_PASSWORD}
+
+      # --- Enable Auto Reconnect ---
+      - AUTO_RECONNECT=${AUTO_RECONNECT:-false}
+
+      # --- What IP to ping to check internet? (e.g. 1.1.1.1 or your company internal server) ---
+      - RECONNECT_PING_TARGET=${RECONNECT_PING_TARGET:-1.1.1.1}
+
+      # --- How many seconds to wait before starting to ping (Time for you to type password) ---
+      - RECONNECT_GRACE_PERIOD=${RECONNECT_GRACE_PERIOD:-60}
+
+      # You can add other ENV variables needed by the container/app here
+      # Example (already set in Dockerfile, but could be overridden):
+      # - TZ=Asia/Shanghai
+      # - VNC_RESOLUTION=1920x1080
+      - DEBUG_MODE=true
+
+    # --- Optional: Volumes ---
+    # If you need to persist UniVPN configuration or logs outside the container:
+    volumes:
+      - ./univpn_config:/home/vpnuser/UniVPN
+    #   - ./univpn_logs:/usr/local/UniVPN/log
