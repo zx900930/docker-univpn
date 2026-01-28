@@ -1,8 +1,9 @@
 #!/bin/bash
+# UniVPN Keeper Script - Compatible with supervisor and CLI setup
 
 # Configuration from environment variables
 TARGET=${RECONNECT_PING_TARGET:-8.8.8.8}
-ENABLE=${AUTO_RECONNECT:-true}
+ENABLE=${AUTO_RECONNECT:-false}
 GRACE=${RECONNECT_GRACE_PERIOD:-60}
 CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-10}
 RETRY_DELAY=${RETRY_DELAY:-5}
@@ -14,24 +15,25 @@ DEBUG_MODE=${DEBUG_MODE:-false}
 # Enable debug output if requested
 if [ "$DEBUG_MODE" = "true" ]; then
     set -x
-    log "DEBUG MODE ENABLED - Full trace output active"
 fi
+
+# Helper function for logging with timestamp (outputs to stderr for Docker visibility)
+log() {
+    echo "[Keeper $(date '+%Y-%m-%d %H:%M:%S')] $1" >&2
+}
 
 # Validation
-if [ "$ENABLE" = "true" ] && [ -z "$VPN_USERNAME" ]; then
-    echo "ERROR: VPN_USERNAME environment variable is required"
-    exit 1
+if [ "$ENABLE" = "true" ]; then
+    if [ -z "$VPN_USERNAME" ]; then
+        log "ERROR: AUTO_RECONNECT is enabled but VPN_USERNAME is not set"
+        exit 1
+    fi
+    
+    if [ -z "$VPN_PASSWORD" ]; then
+        log "ERROR: AUTO_RECONNECT is enabled but VPN_PASSWORD is not set"
+        exit 1
+    fi
 fi
-
-if [ "$ENABLE" = "true" ] && [ -z "$VPN_PASSWORD" ]; then
-    echo "ERROR: VPN_PASSWORD environment variable is required"
-    exit 1
-fi
-
-# Helper function for logging with timestamp
-log() {
-    echo "[Keeper] $(date '+%Y-%m-%d %H:%M:%S') - $1" >&2
-}
 
 # Helper function to ensure a process is dead
 ensure_stopped() {
@@ -87,9 +89,9 @@ spawn $APP_CMD
 
 # Wait for welcome message
 expect {
-    \"Welcome to UniVPN\" {
+    -re \".*Welcome.*UniVPN.*\" {
         puts \"[Keeper] ✓ Received welcome message\"
-        send \"3\r\"
+        send \"3\\r\"
     }
     timeout {
         puts \"[Keeper] ✗ ERROR: Timeout waiting for welcome message\"
@@ -101,15 +103,14 @@ expect {
     }
 }
 
+# Small delay to let menu render
+sleep 0.5
+
 # Wait for connection option - this might show stored sessions
 expect {
-    \"*1:Connect*\" {
+    -re \".*(1:Connect|Please select).*\" {
         puts \"[Keeper] ✓ Found connection menu, selecting option 1\"
-        send \"1\r\"
-    }
-    \"*Please select*\" {
-        puts \"[Keeper] ✓ Found selection menu, selecting option 1\"
-        send \"1\r\"
+        send \"1\\r\"
     }
     timeout {
         puts \"[Keeper] ✗ ERROR: Timeout waiting for connection menu\"
@@ -117,16 +118,19 @@ expect {
     }
 }
 
+# Small delay
+sleep 0.5
+
 # Now we might get username prompt OR it might auto-connect if stored
 expect {
-    \"*Please input the login user name*\" {
+    -re \".*login user name.*\" {
         puts \"[Keeper] → Username prompt detected, entering credentials\"
-        send \"$env(VPN_USERNAME)\r\"
+        send \"$env(VPN_USERNAME)\\r\"
         
         expect {
-            \"*Please input the login user password*\" {
+            -re \".*password.*\" {
                 puts \"[Keeper] → Password prompt detected\"
-                send \"$env(VPN_PASSWORD)\r\"
+                send \"$env(VPN_PASSWORD)\\r\"
             }
             timeout {
                 puts \"[Keeper] ✗ ERROR: Timeout waiting for password prompt\"
@@ -134,10 +138,10 @@ expect {
             }
         }
     }
-    \"*Connect Success,Enjoy*\" {
+    -re \".*(Connect Success|Enjoy).*\" {
         puts \"[Keeper] ✓ Auto-connected using stored credentials!\"
     }
-    \"*Connecting*\" {
+    -re \".*Connecting.*\" {
         puts \"[Keeper] → Connection in progress...\"
     }
     timeout {
@@ -148,15 +152,11 @@ expect {
 
 # Wait for final connection success if not already seen
 expect {
-    \"*Connect Success,Enjoy*\" {
-        puts \"[Keeper] ✓✓✓ VPN connected successfully ✓✓✓\"
+    -re \".*(Connect Success|Enjoy).*\" {
+        puts \"[Keeper] ✓✓✓ VPN CONNECTED SUCCESSFULLY ✓✓✓\"
     }
-    \"*failed*\" {
+    -re \".*(failed|Failed|error|Error).*\" {
         puts \"[Keeper] ✗ ERROR: Connection failed\"
-        exit 1
-    }
-    \"*error*\" {
-        puts \"[Keeper] ✗ ERROR: Connection error occurred\"
         exit 1
     }
     timeout {
@@ -183,8 +183,11 @@ puts \"[Keeper] VPN process ended\"
 }
 
 # Cleanup any stray instances on start
+log "========================================="
+log "UniVPN Keeper Starting"
+log "========================================="
 log "Cleaning up any existing VPN processes..."
-pkill -f "$APP_CMD" 2>/dev/null
+pkill -f "$APP_CMD" 2>/dev/null || true
 sleep 2
 
 # Main loop
