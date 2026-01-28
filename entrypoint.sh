@@ -8,6 +8,10 @@ echo "========================================="
 echo "UniVPN Container Initialization"
 echo "========================================="
 
+# Display current user
+echo "Running as user: $(whoami) (UID=$(id -u), GID=$(id -g))"
+echo "Home directory: $HOME"
+
 # 1. Check if expect is installed
 if ! command -v expect &> /dev/null; then
     echo "ERROR: 'expect' is not installed. Installing..."

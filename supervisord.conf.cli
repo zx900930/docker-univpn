@@ -4,11 +4,22 @@ logfile=/var/log/supervisor/supervisord.log
 pidfile=/var/run/supervisord.pid
 user=root
 
+
+[program:univpn-keeper]
+command=/usr/local/bin/univpn-keeper.sh
+user=vpnuser
+autostart=true
+autorestart=true
+priority=10
+stdout_logfile=/var/log/supervisor/univpn-keeper_stdout.log
+stderr_logfile=/var/log/supervisor/univpn-keeper_stderr.log
+
 [program:danted]
 command=/usr/local/bin/wait_and_start_dante.sh
 user=root
 autostart=true
 autorestart=true
+priority=20
 stdout_logfile=/var/log/supervisor/danted_stdout.log
 stderr_logfile=/var/log/supervisor/danted_stderr.log
 startsecs=40
@@ -17,13 +28,7 @@ startsecs=40
 command=/usr/bin/tinyproxy -c /etc/tinyproxy/tinyproxy.conf
 autostart=true
 autorestart=true
+priority=30
 stdout_logfile=/var/log/supervisor/tinyproxy.log
 stderr_logfile=/var/log/supervisor/tinyproxy.err
 
-[program:univpn-keeper]
-command=/usr/local/bin/univpn-keeper.sh
-user=vpnuser
-autostart=true
-autorestart=true
-stdout_logfile=/var/log/supervisor/univpn-keeper_stdout.log
-stderr_logfile=/var/log/supervisor/univpn-keeper_stderr.log
