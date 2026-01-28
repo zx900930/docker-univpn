@@ -39,11 +39,9 @@ services:
 
     # --- Environment Variables ---
     environment:
-      # Sets the VNC_PW environment variable inside the container,
-      # which the vnc_startup.sh script uses.
-      # Reads the VNC_PASSWORD from your environment or the .env file.
-      # Provides a default password if VNC_PASSWORD is not set.
-      - VNC_PW=${VNC_PASSWORD:-univpn} # CHANGE defaultpassword!
+      # VPN Credentials (REQUIRED)
+      - VPN_USERNAME=${VPN_USERNAME}
+      - VPN_PASSWORD=${VPN_PASSWORD}
 
       # --- Enable Auto Reconnect ---
       - AUTO_RECONNECT=${AUTO_RECONNECT:-false}
@@ -58,6 +56,7 @@ services:
       # Example (already set in Dockerfile, but could be overridden):
       # - TZ=Asia/Shanghai
       # - VNC_RESOLUTION=1920x1080
+      - DEBUG_MODE=true
 
     # --- Optional: Volumes ---
     # If you need to persist UniVPN configuration or logs outside the container:
