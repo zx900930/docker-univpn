@@ -77,28 +77,30 @@ start_vpn() {
         log "Debug mode: expect output will be saved to $expect_log"
     fi
     
-    # Use expect with full output visibility
+    # FIX 1: We use \[ and \] to prevent Tcl from executing "Keeper" as a command.
+    # FIX 2: We use $VPN_USERNAME instead of $env(VPN_USERNAME) so Bash injects the value directly.
+    
     expect ${expect_log:+-d} -c "
 set timeout 30
 log_user 1
 
 ${expect_log:+exp_internal -f \"$expect_log\" 1}
 
-puts \"[Keeper] Spawning UniVPN client: $APP_CMD\"
+puts \"\[Keeper\] Spawning UniVPN client: $APP_CMD\"
 spawn $APP_CMD
 
 # Wait for welcome message
 expect {
     -re \".*Welcome.*UniVPN.*\" {
-        puts \"[Keeper] ✓ Received welcome message\"
+        puts \"\[Keeper\] ✓ Received welcome message\"
         send \"3\\r\"
     }
     timeout {
-        puts \"[Keeper] ✗ ERROR: Timeout waiting for welcome message\"
+        puts \"\[Keeper\] ✗ ERROR: Timeout waiting for welcome message\"
         exit 1
     }
     eof {
-        puts \"[Keeper] ✗ ERROR: Process ended unexpectedly during startup\"
+        puts \"\[Keeper\] ✗ ERROR: Process ended unexpectedly during startup\"
         exit 1
     }
 }
@@ -106,14 +108,14 @@ expect {
 # Small delay to let menu render
 sleep 0.5
 
-# Wait for connection option - this might show stored sessions
+# Wait for connection option
 expect {
     -re \".*(1:Connect|Please select).*\" {
-        puts \"[Keeper] ✓ Found connection menu, selecting option 1\"
+        puts \"\[Keeper\] ✓ Found connection menu, selecting option 1\"
         send \"1\\r\"
     }
     timeout {
-        puts \"[Keeper] ✗ ERROR: Timeout waiting for connection menu\"
+        puts \"\[Keeper\] ✗ ERROR: Timeout waiting for connection menu\"
         exit 1
     }
 }
@@ -121,56 +123,55 @@ expect {
 # Small delay
 sleep 0.5
 
-# Now we might get username prompt OR it might auto-connect if stored
+# Login logic
 expect {
     -re \".*login user name.*\" {
-        puts \"[Keeper] → Username prompt detected, entering credentials\"
-        send \"$env(VPN_USERNAME)\\r\"
+        puts \"\[Keeper\] → Username prompt detected, entering credentials\"
+        send \"$VPN_USERNAME\\r\"
         
         expect {
             -re \".*password.*\" {
-                puts \"[Keeper] → Password prompt detected\"
-                send \"$env(VPN_PASSWORD)\\r\"
+                puts \"\[Keeper\] → Password prompt detected\"
+                send \"$VPN_PASSWORD\\r\"
             }
             timeout {
-                puts \"[Keeper] ✗ ERROR: Timeout waiting for password prompt\"
+                puts \"\[Keeper\] ✗ ERROR: Timeout waiting for password prompt\"
                 exit 1
             }
         }
     }
     -re \".*(Connect Success|Enjoy).*\" {
-        puts \"[Keeper] ✓ Auto-connected using stored credentials!\"
+        puts \"\[Keeper\] ✓ Auto-connected using stored credentials!\"
     }
     -re \".*Connecting.*\" {
-        puts \"[Keeper] → Connection in progress...\"
+        puts \"\[Keeper\] → Connection in progress...\"
     }
     timeout {
-        puts \"[Keeper] ✗ ERROR: Timeout waiting for login or connection\"
+        puts \"\[Keeper\] ✗ ERROR: Timeout waiting for login or connection\"
         exit 1
     }
 }
 
-# Wait for final connection success if not already seen
+# Wait for final connection
 expect {
     -re \".*(Connect Success|Enjoy).*\" {
-        puts \"[Keeper] ✓✓✓ VPN CONNECTED SUCCESSFULLY ✓✓✓\"
+        puts \"\[Keeper\] ✓✓✓ VPN CONNECTED SUCCESSFULLY ✓✓✓\"
     }
     -re \".*(failed|Failed|error|Error).*\" {
-        puts \"[Keeper] ✗ ERROR: Connection failed\"
+        puts \"\[Keeper\] ✗ ERROR: Connection failed\"
         exit 1
     }
     timeout {
-        puts \"[Keeper] ✗ ERROR: Timeout waiting for connection confirmation\"
+        puts \"\[Keeper\] ✗ ERROR: Timeout waiting for connection confirmation\"
         exit 1
     }
 }
 
-puts \"[Keeper] Connection established, entering monitoring mode\"
-puts \"[Keeper] =========================================\"
+puts \"\[Keeper\] Connection established, entering monitoring mode\"
+puts \"\[Keeper\] =========================================\"
 
-# Keep the process running and wait for it to end or be killed
 expect eof
-puts \"[Keeper] VPN process ended\"
+puts \"\[Keeper\] VPN process ended\"
 " 2>&1
     
     local exit_code=$?
