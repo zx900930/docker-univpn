@@ -52,6 +52,10 @@ This project provides a Docker container for the Huawei UniVPN GUI client (versi
     ```dotenv
     # .env file
 
+    # VPN Credentials (REQUIRED IF USING CLI IMAGE)
+    VPN_USERNAME=your_username_here
+    VPN_PASSWORD=your_password_here
+
     # Security & Network
     VNC_PASSWORD=YourStrongVncPassword123
     SPOOF_MAC=00:1A:2B:3C:4D:5E
@@ -170,4 +174,3 @@ If the VPN freezes or you need to restart it manually without restarting the who
 ## License
 
 The Dockerfile and scripts in this repository are provided under the [MIT License](LICENSE). The Huawei software included in `./bin` is proprietary.
-

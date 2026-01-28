@@ -33,6 +33,8 @@ RUN apt-get update && \
     locales \
     ca-certificates \
     sudo \
+    expect \
+    procps \
     net-tools \
     iproute2 \
     iputils-ping \
@@ -127,7 +129,7 @@ COPY wait_and_start_dante.sh /usr/local/bin/wait_and_start_dante.sh
 RUN chmod +x /usr/local/bin/wait_and_start_dante.sh
 
 # --- Copy the UniVPN Keeper Script ---
-COPY univpn-keeper.sh /usr/local/bin/univpn-keeper.sh
+COPY univpn-keeper.sh.cli /usr/local/bin/univpn-keeper.sh
 RUN chmod +x /usr/local/bin/univpn-keeper.sh
 
 # --- Config UniVPN session autoconnect ---

@@ -1,0 +1,209 @@
+#!/bin/bash
+
+# Configuration from environment variables
+TARGET=${RECONNECT_PING_TARGET:-8.8.8.8}
+ENABLE=${AUTO_RECONNECT:-true}
+GRACE=${RECONNECT_GRACE_PERIOD:-60}
+CHECK_INTERVAL=${HEALTH_CHECK_INTERVAL:-10}
+RETRY_DELAY=${RETRY_DELAY:-5}
+VPN_USERNAME=${VPN_USERNAME:-}
+VPN_PASSWORD=${VPN_PASSWORD:-}
+APP_CMD="/usr/local/UniVPN/serviceclient/UniVPNCS"
+
+# Validation
+if [ "$ENABLE" = "true" ] && [ -z "$VPN_USERNAME" ]; then
+    echo "ERROR: VPN_USERNAME environment variable is required"
+    exit 1
+fi
+
+if [ "$ENABLE" = "true" ] && [ -z "$VPN_PASSWORD" ]; then
+    echo "ERROR: VPN_PASSWORD environment variable is required"
+    exit 1
+fi
+
+# Helper function for logging with timestamp
+log() {
+    echo "[Keeper] $(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
+
+# Helper function to ensure a process is dead
+ensure_stopped() {
+    local pid=$1
+    if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+        log "Stopping VPN process (PID: $pid)..."
+        kill "$pid" 2>/dev/null
+        
+        # Wait up to 20 seconds for graceful exit
+        local count=0
+        while kill -0 "$pid" 2>/dev/null; do
+            if [ $count -ge 20 ]; then
+                log "Process stuck. Force killing (SIGKILL)..."
+                kill -9 "$pid" 2>/dev/null
+                break
+            fi
+            sleep 1
+            ((count++))
+        done
+        log "Old process stopped."
+    fi
+}
+
+# Function to check network connectivity
+check_connectivity() {
+    if ping -c 1 -W 2 "$TARGET" > /dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to start VPN using expect
+start_vpn() {
+    log "Starting UniVPN connection..."
+    
+    expect <<EOF
+set timeout 30
+log_user 0
+
+spawn $APP_CMD
+
+# Wait for welcome message
+expect {
+    "Welcome to UniVPN" {
+        send "3\r"
+    }
+    timeout {
+        puts "[Keeper] ERROR: Timeout waiting for welcome message"
+        exit 1
+    }
+}
+
+# Wait for connection option
+expect {
+    "*1:Connect*" {
+        send "1\r"
+    }
+    timeout {
+        puts "[Keeper] ERROR: Timeout waiting for connection menu"
+        exit 1
+    }
+}
+
+# Enter username
+expect {
+    "*Please input the login user name*" {
+        send "$env(VPN_USERNAME)\r"
+    }
+    timeout {
+        puts "[Keeper] ERROR: Timeout waiting for username prompt"
+        exit 1
+    }
+}
+
+# Enter password
+expect {
+    "*Please input the login user password*" {
+        send "$env(VPN_PASSWORD)\r"
+    }
+    timeout {
+        puts "[Keeper] ERROR: Timeout waiting for password prompt"
+        exit 1
+    }
+}
+
+# Wait for connection success
+expect {
+    "*Connect Success,Enjoy*" {
+        puts "[Keeper] VPN connected successfully"
+    }
+    "*failed*" {
+        puts "[Keeper] ERROR: Connection failed"
+        exit 1
+    }
+    timeout {
+        puts "[Keeper] ERROR: Timeout waiting for connection confirmation"
+        exit 1
+    }
+}
+
+# Keep the process running and wait for it to end or be killed
+expect eof
+EOF
+    
+    return $?
+}
+
+# Cleanup any stray instances on start
+log "Cleaning up any existing VPN processes..."
+pkill -f "$APP_CMD" 2>/dev/null
+sleep 2
+
+# Main loop
+while true; do
+    log "========================================="
+    log "Starting new VPN connection attempt"
+    
+    # Start VPN in background and capture PID
+    start_vpn &
+    VPN_PID=$!
+    
+    log "VPN process started with PID: $VPN_PID"
+    
+    if [ "$ENABLE" = "true" ]; then
+        log "Auto-reconnect ENABLED"
+        log "Target: $TARGET | Grace period: ${GRACE}s | Check interval: ${CHECK_INTERVAL}s"
+        
+        # Wait for initial connection establishment
+        log "Waiting ${GRACE}s for VPN to establish connection..."
+        sleep $GRACE
+        
+        # Check if process is still running after grace period
+        if ! kill -0 $VPN_PID 2>/dev/null; then
+            log "ERROR: VPN process died during startup. Retrying..."
+            sleep $RETRY_DELAY
+            continue
+        fi
+        
+        log "Beginning health checks..."
+        FAIL_COUNT=0
+        
+        # Monitor loop
+        while kill -0 $VPN_PID 2>/dev/null; do
+            if ! check_connectivity; then
+                FAIL_COUNT=$((FAIL_COUNT + 1))
+                log "WARNING: Ping check to $TARGET failed (attempt $FAIL_COUNT/2)"
+                
+                if [ $FAIL_COUNT -ge 2 ]; then
+                    log "ERROR: Connection lost after 2 consecutive failures. Triggering restart..."
+                    break
+                fi
+                
+                sleep 2
+            else
+                # Reset fail count on success
+                if [ $FAIL_COUNT -gt 0 ]; then
+                    log "Connection restored"
+                    FAIL_COUNT=0
+                fi
+                sleep $CHECK_INTERVAL
+            fi
+        done
+        
+        # Check if process died naturally
+        if ! kill -0 $VPN_PID 2>/dev/null; then
+            log "VPN process terminated unexpectedly"
+        fi
+        
+    else
+        log "Auto-reconnect DISABLED. Monitoring process only..."
+        wait $VPN_PID
+        EXIT_CODE=$?
+        log "VPN process exited with code: $EXIT_CODE"
+    fi
+    
+    # Ensure cleanup
+    ensure_stopped $VPN_PID
+    
+    log "Waiting ${RETRY_DELAY}s before restart..."
+    sleep $RETRY_DELAY
+done

@@ -5,7 +5,7 @@
 [![Docker Hub](https://img.shields.io/docker/pulls/triatk/univpn.svg)](https://hub.docker.com/r/triatk/univpn)
 [![Docker Image Size](https://img.shields.io/docker/image-size/triatk/univpn/latest)](https://hub.docker.com/r/triatk/univpn)
 
-本项目提供了一个用于华为 UniVPN 图形界面或纯CLI客户端 (版本 **10781.18.1.0512**，发布于 2025 年 5 月 12 日) 的 Docker 容器，可通过 VNC 或 Web 浏览器 (noVNC) 或 命令行 访问。它还包含 SOCKS5 和 HTTP 代理，允许宿主机应用程序通过容器的 VPN 连接路由流量。
+本项目提供了一个用于华为 UniVPN 图形界面客户端 (版本 **10781.18.1.0512**，发布于 2025 年 5 月 12 日) 的 Docker 容器，可通过 VNC 或 Web 浏览器 (noVNC) 访问。它还包含 SOCKS5 和 HTTP 代理，允许宿主机应用程序通过容器的 VPN 连接路由流量。
 
 **本版本新增功能：** 容器包含智能**保活系统 (Keep-Alive)**，如果连接断开或应用程序崩溃，它可以自动重启 VPN 客户端。
 
@@ -52,6 +52,10 @@
     ```dotenv
     # .env 文件
 
+    # VPN账号设置 (只有使用CLI镜像时需要)
+    VPN_USERNAME=your_username_here
+    VPN_PASSWORD=your_password_here
+
     # 安全与网络设置
     VNC_PASSWORD=YourStrongVncPassword123
     SPOOF_MAC=00:1A:2B:3C:4D:5E
@@ -87,31 +91,41 @@
 本仓库还提供了一个 `Dockerfile.cli` 文件，用于构建 UniVPN 客户端的纯命令行 (CLI) 版本。此镜像适用于不需要图形界面的环境，例如 CI/CD 流水线、脚本编写或无头服务器。
 
 **新的 Dockerfile:** `Dockerfile.cli`
-**新的 Docker 镜像:** `triatk/univpn:${version}-cli` (可在 Docker Hub 上找到)
+**新的 Docker 镜像:** `triatk/univpn-cli` (可在 Docker Hub 上找到)
 
 ### 构建 CLI 镜像
 
-您可以手动构建：
+已更新 CI 工作流程 (`.github/workflows/docker-image.yml`)，当推送到 `cli-only-image` 分支时，会自动构建并推送 `triatk/univpn-cli` 镜像。
+
+您也可以手动构建：
 
 ```bash
 # 确保您的 bin/ 目录下有 zip 文件
 # 构建 CLI 镜像 (可选：将 'latest' 替换为版本标签)
-docker build -t triatk/univpn:latest-cli -f Dockerfile.cli .
+docker build -t triatk/univpn-cli:latest -f Dockerfile.cli .
+
+# 推送到 Docker Hub (需要登录)
+# docker login
+# docker push triatk/univpn-cli:latest
 ```
 
 ### 使用 CLI 镜像
 
 CLI 镜像设计用于纯命令行运行UniVPN。
 
-首次使用 (需要输入以下命令手动配置好 VPN 连接信息):
+首次使用 (需要输入以下命令手动配置好 VPN 凭据和配置文件):
 
 ```bash
+# 假设您已配置好 VPN 凭据和配置文件
+# 并且 Dockerfile.cli 使用 CMD 启动 bash
 docker run --rm -it \
   -v ./univpn_config:/home/vpnuser/UniVPN \
-  --name univpn \
-  triatk/univpn:latest-cli \
-  bash -c "/usr/local/UniVPN/serviceclient/UniVPNCS"
+  --name univpn-cli \
+  triatk/univpn-cli:latest \
+  bash -c "/usr/local/UniVPN/UniVPN"
 ```
+
+_注意：实际使用时，您可能需要调整 `Dockerfile.cli` 中的 `CMD` 命令，或在 `docker run` 命令中指定具体要执行的命令。当前 `Dockerfile.cli` 的 `CMD` 是 `["/bin/bash"]`，允许交互式 shell 访问。_
 
 ## 自动重连与手动重启
 
@@ -165,4 +179,3 @@ docker run --rm -it \
 ## 许可证
 
 本仓库中的 Dockerfile 和脚本根据 [MIT 许可证](LICENSE) 提供。`./bin` 目录中的华为软件受其专有协议约束。
-
