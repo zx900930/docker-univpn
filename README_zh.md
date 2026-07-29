@@ -69,6 +69,10 @@
 
     # 启动后等待登录的宽限期 (秒)，在此期间不进行 Ping 检测
     RECONNECT_GRACE_PERIOD=60
+
+    # Dante SOCKS5 出口 VPN 网卡。
+    # 请设置为当前环境中 UniVPN 创建的 VPN 网卡名，例如 ipsec_vnic。
+    DANTE_INTERFACE=cnem_vnic
     ```
 
 3.  **启动容器:**
@@ -85,6 +89,16 @@
 5.  **使用代理:**
     - **SOCKS5:** `localhost:1080`
     - **HTTP:** `localhost:8888`
+
+    Dante 会等待 `DANTE_INTERFACE` 指定的网卡出现后再启动。默认值是 `cnem_vnic`；如果当前环境中 UniVPN 创建的是其他 VPN 网卡，例如 `ipsec_vnic`，请在 `.env` 中设置对应名称。
+    VPN 连接成功后，可以在容器内查看实际网卡名：
+    ```bash
+    docker compose exec univpn ip -br link
+    ```
+    如果使用 CLI compose 文件，请运行：
+    ```bash
+    docker compose -f docker-compose-cli.yml exec univpn ip -br link
+    ```
 
 ## 纯命令行 (CLI) Docker 镜像
 

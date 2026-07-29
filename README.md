@@ -69,6 +69,10 @@ This project provides a Docker container for the Huawei UniVPN GUI client (versi
 
     # Time (in seconds) to wait for login before starting connectivity checks
     RECONNECT_GRACE_PERIOD=60
+
+    # Dante SOCKS5 outgoing VPN interface.
+    # Set this to the VPN interface name created in your environment, such as ipsec_vnic.
+    DANTE_INTERFACE=cnem_vnic
     ```
 
 3.  **Start the Container:**
@@ -85,6 +89,16 @@ This project provides a Docker container for the Huawei UniVPN GUI client (versi
 5.  **Use the Proxies:**
     - **SOCKS5:** `localhost:1080`
     - **HTTP:** `localhost:8888`
+
+    Dante waits for `DANTE_INTERFACE` before starting. The default is `cnem_vnic`; set it to the VPN interface name created in your environment, such as `ipsec_vnic`.
+    After the VPN is connected, you can check the interface name inside the container:
+    ```bash
+    docker compose exec univpn ip -br link
+    ```
+    For the CLI compose file, use:
+    ```bash
+    docker compose -f docker-compose-cli.yml exec univpn ip -br link
+    ```
 
 ## CLI-Only Docker Image
 
