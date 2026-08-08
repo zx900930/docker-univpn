@@ -1,9 +1,16 @@
 #!/bin/bash
 
-INTERFACE="cnem_vnic"
+INTERFACE="${DANTE_INTERFACE:-cnem_vnic}"
 DANTE_COMMAND="/usr/sbin/danted -f /etc/danted.conf"
 CHECK_INTERVAL=5 # Seconds between checks
 MAX_CHECKS=60    # Wait a maximum of 5 minutes (60 checks * 5 seconds)
+
+if ! [[ "${INTERFACE}" =~ ^[A-Za-z0-9_.:-]+$ ]]; then
+  echo "[Wrapper] ERROR: Invalid interface name: ${INTERFACE}" >&2
+  exit 1
+fi
+
+sed -i "s|^external:.*|external: ${INTERFACE}|" /etc/danted.conf
 
 echo "[Wrapper] Waiting for interface ${INTERFACE} to appear..."
 

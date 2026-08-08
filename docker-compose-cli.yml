@@ -52,6 +52,9 @@ services:
       # --- How many seconds to wait before starting to ping (Time for you to type password) ---
       - RECONNECT_GRACE_PERIOD=${RECONNECT_GRACE_PERIOD:-60}
 
+      # --- Dante SOCKS5 outgoing VPN interface ---
+      - DANTE_INTERFACE=${DANTE_INTERFACE:-cnem_vnic}
+
       # You can add other ENV variables needed by the container/app here
       # Example (already set in Dockerfile, but could be overridden):
       # - TZ=Asia/Shanghai
