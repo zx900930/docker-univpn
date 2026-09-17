@@ -5,7 +5,7 @@
 [![Docker Hub](https://img.shields.io/docker/pulls/triatk/univpn.svg)](https://hub.docker.com/r/triatk/univpn)
 [![Docker Image Size](https://img.shields.io/docker/image-size/triatk/univpn/latest)](https://hub.docker.com/r/triatk/univpn)
 
-本项目提供了一个用于华为 UniVPN 图形界面客户端 (版本 **10781.21.0.0831**，发布于 2025 年 5 月 12 日) 的 Docker 容器，可通过 VNC 或 Web 浏览器 (noVNC) 访问。它还包含 SOCKS5 和 HTTP 代理，允许宿主机应用程序通过容器的 VPN 连接路由流量。
+本项目提供了一个用于华为 UniVPN 图形界面客户端 (版本 **10781.21.0.0831**) 的 Docker 容器，可通过 VNC 或 Web 浏览器 (noVNC) 访问。它还包含 SOCKS5 和 HTTP 代理，允许宿主机应用程序通过容器的 VPN 连接路由流量。
 
 **本版本新增功能：** 容器包含智能**保活系统 (Keep-Alive)**，如果连接断开或应用程序崩溃，它可以自动重启 VPN 客户端。
 
