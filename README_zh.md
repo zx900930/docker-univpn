@@ -5,18 +5,18 @@
 [![Docker Hub](https://img.shields.io/docker/pulls/triatk/univpn.svg)](https://hub.docker.com/r/triatk/univpn)
 [![Docker Image Size](https://img.shields.io/docker/image-size/triatk/univpn/latest)](https://hub.docker.com/r/triatk/univpn)
 
-本项目提供了一个用于华为 UniVPN 图形界面客户端 (版本 **10781.19.0.1214**，发布于 2025 年 5 月 12 日) 的 Docker 容器，可通过 VNC 或 Web 浏览器 (noVNC) 访问。它还包含 SOCKS5 和 HTTP 代理，允许宿主机应用程序通过容器的 VPN 连接路由流量。
+本项目提供了一个用于华为 UniVPN 图形界面客户端 (版本 **10781.21.0.0831**) 的 Docker 容器，可通过 VNC 或 Web 浏览器 (noVNC) 访问。它还包含 SOCKS5 和 HTTP 代理，允许宿主机应用程序通过容器的 VPN 连接路由流量。
 
 **本版本新增功能：** 容器包含智能**保活系统 (Keep-Alive)**，如果连接断开或应用程序崩溃，它可以自动重启 VPN 客户端。
 
 **免责声明：** 本项目为非官方项目，与华为公司无任何关联。华为 UniVPN 客户端软件本身为华为公司的专有财产。尽管为了方便构建，二进制文件已包含在 `./bin` 目录中，但**您有责任在使用时遵守华为的服务条款和许可协议**。
 
-## 内含软件信息 (版本: 10781.19.0.1214)
+## 内含软件信息 (版本: 10781.21.0.0831)
 
 | 字段           | 值                                                           |
 | :------------- | :----------------------------------------------------------- |
-| Release 版本   | **10781.19.0.1214**                                          |
-| 二进制文件位置 | 包含在仓库中: `./bin/univpn-linux-64-10781.19.0.1214.zip`    |
+| Release 版本   | **10781.21.0.0831**                                          |
+| 二进制文件位置 | 包含在仓库中: `./bin/univpn-linux-64-10781.21.0.0831.zip`    |
 | 基础操作系统   | Ubuntu 22.04 LTS                                             |
 | 访问方式       | VNC (端口 5901), Web 浏览器通过 noVNC (端口 6901)            |
 | 代理           | SOCKS5 (Dante) 在端口 1080, **HTTP (Tinyproxy) 在端口 8888** |
