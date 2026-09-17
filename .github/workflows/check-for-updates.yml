@@ -74,11 +74,67 @@ jobs:
             echo "NEW_FILE_DOWNLOADED=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Commit and push new file
+      # NEW: Update version files
+      - name: Update docker-compose.yml
+        if: steps.compare-versions-and-download.outputs.NEW_FILE_DOWNLOADED == 'true'
+        run: |
+          sed -i -E "s/image: triatk\\/univpn:.*/image: triatk\\/univpn:${{ steps.get-web-version.outputs.WEB_VERSION }}/" docker-compose.yml
+          echo "Updated docker-compose.yml with version ${{ steps.get-web-version.outputs.WEB_VERSION }}"
+
+      - name: Update Dockerfile
+        if: steps.compare-versions-and-download.outputs.NEW_FILE_DOWNLOADED == 'true'
+        run: |
+          sed -i -E "s/ARG CLIENT_VERSION=.*/ARG CLIENT_VERSION=${{ steps.get-web-version.outputs.WEB_VERSION }}/" Dockerfile
+          echo "Updated Dockerfile with version ${{ steps.get-web-version.outputs.WEB_VERSION }}"
+          sed -i -E "s/ARG CLIENT_VERSION=.*/ARG CLIENT_VERSION=${{ steps.get-web-version.outputs.WEB_VERSION }}/" Dockerfile.cli
+          echo "Updated Dockerfile.cli with version ${{ steps.get-web-version.outputs.WEB_VERSION }}"
+
+      - name: Update README.md and README_zh.md
+        if: steps.compare-versions-and-download.outputs.NEW_FILE_DOWNLOADED == 'true'
+        run: |
+          OLD_VERSION=$(grep -oP '\| Release[^\|]*\| \*\*\K[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(?=\*\*)' README.md)
+          NEW_VERSION="${{ steps.get-web-version.outputs.WEB_VERSION }}"
+
+          if [[ -z "$OLD_VERSION" || -z "$NEW_VERSION" ]]; then
+            echo "Could not detect version numbers properly."
+            exit 1
+          fi
+
+          for file in README.md README_zh.md; do
+            sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" "$file"
+          done
+
+          echo "Updated README.md and README_zh.md from version $OLD_VERSION to $NEW_VERSION."
+
+      - name: Commit and push new file and version update
         if: steps.compare-versions-and-download.outputs.NEW_FILE_DOWNLOADED == 'true'
         run: |
           git config user.name github-actions[bot]
           git config user.email github-actions[bot]@users.noreply.github.com
-          git add bin/univpn-linux-64-${{ steps.get-web-version.outputs.WEB_VERSION }}.zip
-          git commit -m "feat: Download UniVPN client version ${{ steps.get-web-version.outputs.WEB_VERSION }}"
+          git add bin/univpn-linux-64-${{ steps.get-web-version.outputs.WEB_VERSION }}.zip docker-compose.yml Dockerfile Dockerfile.cli README.md README_zh.md
+          git commit -m "feat: Download UniVPN client version ${{ steps.get-web-version.outputs.WEB_VERSION }} and update version files"
           git push
+
+      # NEW: Build and push Docker images
+      - name: Set up QEMU
+        if: steps.compare-versions-and-download.outputs.NEW_FILE_DOWNLOADED == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.compare-versions-and-download.outputs.NEW_FILE_DOWNLOADED == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: steps.compare-versions-and-download.outputs.NEW_FILE_DOWNLOADED == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker images
+        if: steps.compare-versions-and-download.outputs.NEW_FILE_DOWNLOADED == 'true'
+        run: |
+          docker build -f Dockerfile -t triatk/univpn:latest .
+          docker push triatk/univpn:latest
+          docker build -f Dockerfile.cli -t triatk/univpn-cli:latest .
+          docker push triatk/univpn-cli:latest
