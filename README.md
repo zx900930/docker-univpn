@@ -4,7 +4,7 @@
 
 [![Docker Hub](https://img.shields.io/docker/pulls/triatk/univpn.svg)](https://hub.docker.com/r/triatk/univpn) [![Docker Image Size](https://img.shields.io/docker/image-size/triatk/univpn/latest)](https://hub.docker.com/r/triatk/univpn)
 
-This project provides a Docker container for the Huawei UniVPN GUI client (version **10781.21.0.0831**, released on May 12th, 2025), accessible via VNC or a web browser (noVNC). It also includes a SOCKS5 proxy (Dante) and an HTTP proxy (Tinyproxy) to route traffic from host applications through the container's VPN connection.
+This project provides a Docker container for the Huawei UniVPN GUI client (version **10781.21.0.0831**), accessible via VNC or a web browser (noVNC). It also includes a SOCKS5 proxy (Dante) and an HTTP proxy (Tinyproxy) to route traffic from host applications through the container's VPN connection.
 
 **New in this version:** The container includes an intelligent **Keep-Alive system** that can automatically restart the VPN client if the connection drops or the application crashes.
 
